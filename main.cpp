@@ -1,4 +1,4 @@
-#include <stdio>
+#include <cstdio>
 #include <iostream>
 #include <fftw3.h>
 
