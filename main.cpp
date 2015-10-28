@@ -15,8 +15,8 @@ int main(){
 	// read input
 
 	// initiate variables
-
-
+	psi = new float[GRIDS]();
+	u   = new float[GRIDS]();
 
 
 	// run
