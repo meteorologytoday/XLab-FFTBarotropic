@@ -1,7 +1,6 @@
-#define GRID_X 768
-#define GRID_Y 768
+#define XPTS 768
+#define YPTS 768
 
-
-
-
-#define GRIDS (GRID_X*GRID_Y)
+#define GRIDS (XPTS*YPTS)
+#define HALF_XPTS ((int)((XPTS/2)+1))
+#define HALF_YPTS ((int)((YPTS/2)+1))
