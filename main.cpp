@@ -6,6 +6,7 @@
 #include <iostream>
 #include <fftw3.h>
 #include "configuration.h"
+#include "fftwf_operation.h"
 
 #define M_2PI (2.0*M_PI)
 
@@ -20,11 +21,10 @@ fftwf_plan p_fwd_vort,    p_bwd_vort,
 
 fftwf_complex *vort_c0, *vort_c, *tmp_c, *psi_c, *rk1_c, *rk2_c, *rk3_c, *rk4_c;
 
-float *gradx_coe, *grady_coe, *laplacian_coe;
-
 int total_steps;
 float dt;
 
+fftwf_operation fop;
 int main(){
 
 	// initiate variables
@@ -56,8 +56,8 @@ int main(){
 	p_bwd_v          = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, v, FFTW_BACKWARD);
 
 	// read input
-	Lx = 600000.0;
-	Ly = 600000.0;
+	Lx = LX;
+	Ly = LY;
 	dx = Lx / XPTS;
 	dy = Ly / YPTS;
 
@@ -92,26 +92,6 @@ int main(){
 		}
 	}
 
-	// setup gradx_coe, grady_coe, laplacian_coe
-	gradx_coe = (float*) fftwf_malloc(sizeof(float) * HALF_XPTS);
-	grady_coe = (float*) fftwf_malloc(sizeof(float) * HALF_YPTS);
-	laplacian_coe = (float*) fftwf_malloc(sizeof(float) * HALF_GRIDS);
-
-	for(int i=0; i<HALF_XPTS; ++i) {
-		gradx_coe[i] = M_2PI * ((float) i) / Lx;
-	}
-
-	for(int j=0; j<HALF_YPTS; ++j) {
-			grady_coe[j] = M_2PI * ((float) j) / Ly;
-	}
-
-	for(int i=0; i<HALF_XPTS; ++i) {
-		for(int j=0; j<HALF_YPTS; ++j) {
-			laplacian_coe[IDX(i,j)] = - (pow(gradx_coe[i],2) + pow(grady_coe[j],2));
-		}
-	}
-	laplacian_coe[IDX(0,0)] = 1.0; // this coe is special
-
 	// step 01
 	fftwf_execute(p_fwd_vort);
 	memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
@@ -119,35 +99,44 @@ int main(){
 	// step 02 Everythings ready!!
 	for(int step = 0; step < total_steps; ++step) {
 
-		// step 03 take dvortdx, save as tmp_c
-		for(int j=0; j<HALF_YPTS; ++j) {
-			for(int i=0; i<HALF_XPTS; ++i) {
-				tmp_c[IDX(i,j)][0] = - vort_c[IDX(i,j)][1] * gradx_coe[i];
-				tmp_c[IDX(i,j)][1] = vort_c[IDX(i,j)][0] * gradx_coe[i];
+		for(int k = 0 ; k < 4; ++k) {
+
+			// step 03 take dvortdx, save as tmp_c
+			fop.gradx(vort_c, tmp_c);
+			// step 04
+			fftwf_execute(p_bwd_dvortdx);
+
+			// step 05 take dvortdy, save as tmp_c
+			fop.grady(vort_c, tmp_c);
+			// step 06
+			fftwf_execute(p_bwd_dvortdy);
+
+			// step 07 get psi_c
+			fop.invertLaplacian(vort_c, psi_c);
+
+			// step 08 get u_c
+			fop.grady(psi_c, tmp_c);
+			// step 09
+			fftwf_execute(p_bwd_u);
+			for(int i=0; i<GRIDS;++i) { u[i] = -u[i]; }
+
+			// step 10 get v_c
+			fop.gradx(psi_c, tmp_c);
+			// step 11
+			fftwf_execute(p_bwd_v);
+
+			// step 12 get dvortdt
+			for(int i=0; i<GRIDS;++i) {
+				dvortdt[i] = - u[i] * dvortdx[i] - v[i] * dvortdy[i];
 			}
+			// step 13 get devortdt_c
+			fftwf_execute(p_fwd_dvortdt);
+
+			// step 14 dealiasing
+
+
 		}
 
-		// step 04
-		fftwf_execute(p_bwd_dvortdx);
-
-		// step 05 take dvortdy, save as tmp_c
-		for(int j=0; j<HALF_YPTS; ++j) {
-			for(int i=0; i<HALF_XPTS; ++i) {
-				tmp_c[IDX(i,j)][0] = - vort_c[IDX(i,j)][1] * grady_coe[j];
-				tmp_c[IDX(i,j)][1] = vort_c[IDX(i,j)][0] * grady_coe[j];
-			}
-		}
-
-		// step 06
-		fftwf_execute(p_bwd_dvortdy);
-
-		// step 07 get psi_c
-		for(int j=0; j<HALF_YPTS; ++j) {
-			for(int i=0; i<HALF_XPTS; ++i) {
-				psi_c[IDX(i,j)][0] = - vort_c[IDX(i,j)][0] / laplacian_coe[IDX(i,j)];
-				psi_c[IDX(i,j)][1] = - vort_c[IDX(i,j)][1] / laplacian_coe[IDX(i,j)];
-			}
-		}
 
 		//fftwf_destroy_plan(p);
 		//fftwf_free(in); fftwf_free(out);
