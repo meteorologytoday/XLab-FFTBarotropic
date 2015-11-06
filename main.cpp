@@ -1,19 +1,26 @@
 #include <cstdio>
+
+#define _USE_MATH_DEFINES
 #include <cmath>
+#include <cstring>
 #include <iostream>
 #include <fftw3.h>
 #include "configuration.h"
+
+#define M_2PI (2.0*M_PI)
 
 float dx, dy, Lx, Ly;
 
 
 float *vort, *u, *v, *dvortdx, *dvortdy, *dvortdt;
-fftw_plan *p_fwd_vort,    *p_bwd_vort,
-		  *p_bwd_dvortdx, *p_bwd_dvortdy,
-		  *p_bwd_u,       *p_bwd_v,
-		  *p_fwd_dvortdt;
+fftwf_plan p_fwd_vort,    p_bwd_vort,
+		   p_bwd_dvortdx, p_bwd_dvortdy,
+		   p_bwd_u,       p_bwd_v,
+		   p_fwd_dvortdt;
 
 fftwf_complex *vort_c0, *vort_c, *tmp_c, *psi_c, *rk1_c, *rk2_c, *rk3_c, *rk4_c;
+
+float *gradx_coe, *grady_coe, *laplacian_coe;
 
 int total_steps;
 float dt;
@@ -39,14 +46,14 @@ int main(){
 	rk4_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 
 	// initializing plan
-	p_fwd_vort    = &fftwf_plan_dft_r2c_2d(XPTS, YPTS, vort, vort_c, FFTW_FORWARD);
-	p_fwd_dvortdt = &fftwf_plan_dft_r2c_2d(XPTS, YPTS, dvortdt, tmp_c, FFTW_FORWARD);
+	p_fwd_vort = fftwf_plan_dft_r2c_2d(XPTS, YPTS, vort, vort_c, FFTW_FORWARD);
+	p_fwd_dvortdt = fftwf_plan_dft_r2c_2d(XPTS, YPTS, dvortdt, tmp_c, FFTW_FORWARD);
 
-	p_bwd_vort       = &fftwf_plan_dft_c2r_2d(XPTS, YPTS, vort_c, vort, FFTW_BACKWARD);
-	p_bwd_dvortdx    = &fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, dvortdx, FFTW_BACKWARD);
-	p_bwd_dvortdy    = &fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, dvortdy, FFTW_BACKWARD);
-	p_bwd_u          = &fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, u, FFTW_BACKWARD);
-	p_bwd_v          = &fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, v, FFTW_BACKWARD);
+	p_bwd_vort       = fftwf_plan_dft_c2r_2d(XPTS, YPTS, vort_c, vort, FFTW_BACKWARD);
+	p_bwd_dvortdx    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, dvortdx, FFTW_BACKWARD);
+	p_bwd_dvortdy    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, dvortdy, FFTW_BACKWARD);
+	p_bwd_u          = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, u, FFTW_BACKWARD);
+	p_bwd_v          = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, v, FFTW_BACKWARD);
 
 	// read input
 	Lx = 600000.0;
@@ -60,16 +67,12 @@ int main(){
 	auto radius = [centerx, centery](float x, float y) -> float {
 		return sqrtf(pow(x-centerx,2) + pow(y-centery,2));
 	};
-	auto alpha = [centerx, centery, epsilon](float x, float y) -> float {
+	auto alpha = [centerx, centery, epsilon, radius](float x, float y) -> float {
 		float c = (y-centery) / radius(x,y);
 		return sqrtf((1.0 - pow(epsilon,2)) / (1.0 - pow(epsilon*c,2)));
 	};
-	auto skewedRadius = [](float x, float y) -> float {
-		return radius(x,y) * alpha(x,y);
-	};
 
 	int x, y;
-	float f_lambda;
 	for(int i=0; i<XPTS; ++i) {
 		x = i * dx;
 		for(int j=0; j<YPTS; ++j) {
@@ -89,28 +92,66 @@ int main(){
 		}
 	}
 
-	// step 01
+	// setup gradx_coe, grady_coe, laplacian_coe
+	gradx_coe = (float*) fftwf_malloc(sizeof(float) * HALF_XPTS);
+	grady_coe = (float*) fftwf_malloc(sizeof(float) * HALF_YPTS);
+	laplacian_coe = (float*) fftwf_malloc(sizeof(float) * HALF_GRIDS);
 
-
-
-	// step 02
-
-
-	fftwf_execute(p);
-
-    fftwf_destroy_plan(p);
-    fftwf_free(in); fftwf_free(out);
-
-
-
-	for(int step = 0; step < total_steps; ++step) {
-		// Get psi by inverting vort using fourier transform
-
-
-		//
-
+	for(int i=0; i<HALF_XPTS; ++i) {
+		gradx_coe[i] = M_2PI * ((float) i) / Lx;
 	}
 
+	for(int j=0; j<HALF_YPTS; ++j) {
+			grady_coe[j] = M_2PI * ((float) j) / Ly;
+	}
+
+	for(int i=0; i<HALF_XPTS; ++i) {
+		for(int j=0; j<HALF_YPTS; ++j) {
+			laplacian_coe[IDX(i,j)] = - (pow(gradx_coe[i],2) + pow(grady_coe[j],2));
+		}
+	}
+	laplacian_coe[IDX(0,0)] = 1.0; // this coe is special
+
+	// step 01
+	fftwf_execute(p_fwd_vort);
+	memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
+
+	// step 02 Everythings ready!!
+	for(int step = 0; step < total_steps; ++step) {
+
+		// step 03 take dvortdx, save as tmp_c
+		for(int j=0; j<HALF_YPTS; ++j) {
+			for(int i=0; i<HALF_XPTS; ++i) {
+				tmp_c[IDX(i,j)][0] = - vort_c[IDX(i,j)][1] * gradx_coe[i];
+				tmp_c[IDX(i,j)][1] = vort_c[IDX(i,j)][0] * gradx_coe[i];
+			}
+		}
+
+		// step 04
+		fftwf_execute(p_bwd_dvortdx);
+
+		// step 05 take dvortdy, save as tmp_c
+		for(int j=0; j<HALF_YPTS; ++j) {
+			for(int i=0; i<HALF_XPTS; ++i) {
+				tmp_c[IDX(i,j)][0] = - vort_c[IDX(i,j)][1] * grady_coe[j];
+				tmp_c[IDX(i,j)][1] = vort_c[IDX(i,j)][0] * grady_coe[j];
+			}
+		}
+
+		// step 06
+		fftwf_execute(p_bwd_dvortdy);
+
+		// step 07 get psi_c
+		for(int j=0; j<HALF_YPTS; ++j) {
+			for(int i=0; i<HALF_XPTS; ++i) {
+				psi_c[IDX(i,j)][0] = - vort_c[IDX(i,j)][0] / laplacian_coe[IDX(i,j)];
+				psi_c[IDX(i,j)][1] = - vort_c[IDX(i,j)][1] / laplacian_coe[IDX(i,j)];
+			}
+		}
+
+		//fftwf_destroy_plan(p);
+		//fftwf_free(in); fftwf_free(out);
+	}
 
 
 

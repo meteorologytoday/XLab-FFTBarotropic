@@ -9,3 +9,5 @@
 #define HALF_GRIDS (HALF_XPTS*HALF_YPTS)
 
 #define IDX(i,j) (XPTS*j+i)
+
+#define SWAP(a,b) {a^=b,b^=a,a^=b; }
