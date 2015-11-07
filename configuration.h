@@ -1,16 +1,19 @@
-#define LX (600000f)
-#define LY (600000f)
+#define LX (600000.0f)
+#define LY (600000.0f)
+#define NU (50.0f)
 
-#define XPTS (768)
-#define YPTS (768)
+#define NPTS (768)
+
+
+// In this model XPTS == YPTS by default because of dealiasing issue.
+#define XPTS (NPTS)
+#define YPTS (NPTS)
 
 #define GRIDS (XPTS*YPTS)
 
 #define HALF_XPTS ((int)((XPTS/2)+1))
 #define HALF_YPTS ((int)((YPTS/2)+1))
 #define HALF_GRIDS (HALF_XPTS*HALF_YPTS)
-#define DEALIASE_XWAVENUMBER ((int)(XPTS/3))
-#define DEALIASE_YWAVENUMBER ((int)(YPTS/3))
 
 #define IDX(i,j) (XPTS*j+i)
 #define HIDX(i,j) (HALF_XPTS*j+i)

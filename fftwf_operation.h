@@ -2,22 +2,24 @@
 #define FFTWF_OPERATION_H
 #include "configuration.h"
 #include <fftw3.h>
-#define _USE_MATH_DEFINES
+
 #include <cmath>
 
-#define M_2PI (2.0*M_PI)
+const float TWOPI = (acos(0.0f) * 2.0f);
 
 class fftwf_operation {
 private:
-	float *gradx_coe, *grady_coe, *laplacian_coe, *dealiasing_mask;
+	float *gradx_coe, *grady_coe, *laplacian_coe, *laplacian_coe_inverse, *dealiasing_mask;
+	int dealiase_xwavenumber, dealiase_ywavenumber;
 public:
 	fftwf_operation();
 	~fftwf_operation();
 
 	void gradx(fftwf_complex *in, fftwf_complex *out);
 	void grady(fftwf_complex *in, fftwf_complex *out);
+	void laplacian(fftwf_complex *in, fftwf_complex *out);
 	void invertLaplacian(fftwf_complex *in, fftwf_complex *out);
-	void dealiase(fftwf_complex *inout);
+	void dealiase(fftwf_complex *in, fftwf_complex *out);
 };
 
 #endif

@@ -3,6 +3,7 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <cstring>
+#include <cstdio>
 #include <iostream>
 #include <fftw3.h>
 #include "configuration.h"
@@ -19,14 +20,18 @@ fftwf_plan p_fwd_vort,    p_bwd_vort,
 		   p_bwd_u,       p_bwd_v,
 		   p_fwd_dvortdt;
 
-fftwf_complex *vort_c0, *vort_c, *tmp_c, *psi_c, *rk1_c, *rk2_c, *rk3_c, *rk4_c;
+fftwf_complex *vort_c0, *vort_c, *lvort_c, *tmp_c, *psi_c, *rk1_c, *rk2_c, *rk3_c;
 
-int total_steps;
-float dt;
+int total_steps = 10;
+float dt = 3.0f;
 
 fftwf_operation fop;
-int main(){
 
+char filename[256];
+
+
+int main(){
+	printf("Start project.\n"); /*
 	// initiate variables
 	vort    = (float*) fftwf_malloc(sizeof(float) * GRIDS);
 	u       = (float*) fftwf_malloc(sizeof(float) * GRIDS);
@@ -38,12 +43,12 @@ int main(){
 	// complex numbers
 	vort_c0   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	vort_c    = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	lvort_c   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	tmp_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	psi_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	rk1_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	rk2_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	rk3_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	rk4_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 
 	// initializing plan
 	p_fwd_vort = fftwf_plan_dft_r2c_2d(XPTS, YPTS, vort, vort_c, FFTW_FORWARD);
@@ -92,61 +97,106 @@ int main(){
 		}
 	}
 
+	auto getDvortdt = [&](){
+		// step ?? take lvort_c
+		fop.laplacian(vort_c, lvort_c);
+
+		// step 03 take dvortdx, save as tmp_c
+		fop.gradx(vort_c, tmp_c);
+		// step 04
+		fftwf_execute(p_bwd_dvortdx);
+
+		// step 05 take dvortdy, save as tmp_c
+		fop.grady(vort_c, tmp_c);
+		// step 06
+		fftwf_execute(p_bwd_dvortdy);
+
+		// step 07 get psi_c
+		fop.invertLaplacian(vort_c, psi_c);
+
+		// step 08 get u_c
+		fop.grady(psi_c, tmp_c);
+		// step 09
+		fftwf_execute(p_bwd_u);
+		for(int i=0; i<GRIDS;++i) { u[i] = -u[i]; }
+
+		// step 10 get v_c
+		fop.gradx(psi_c, tmp_c);
+		// step 11
+		fftwf_execute(p_bwd_v);
+
+		// step 12 get dvortdt
+		for(int i=0; i<GRIDS;++i) {
+			dvortdt[i] = - u[i] * dvortdx[i] - v[i] * dvortdy[i];
+		}
+		// step 13 get dvortdt_c and save in tmp_c
+		fftwf_execute(p_fwd_dvortdt);
+
+		// step ?? add laplacian term
+		for(int i=0; i<HALF_GRIDS;++i) {
+			tmp_c[i][0] -= lvort_c[i][0] * NU;
+			tmp_c[i][1] -= lvort_c[i][1] * NU;
+		}
+	};
+
+	auto evolve = [&](fftwf_complex *rk, float dt) {
+		for(int i=0; i<HALF_GRIDS; ++i){
+			vort_c[i][0] = vort_c0[i][0] + rk[i][0] * dt; // prepare for rk2
+			vort_c[i][1] = vort_c0[i][1] + rk[i][1] * dt; // prepare for rk2
+		}
+	};
+
+	printf("Initialization complete.\n");
+
 	// step 01
 	fftwf_execute(p_fwd_vort);
 	memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
 
-	// step 02 Everythings ready!!
+	// step 02 Everything is ready!!
 	for(int step = 0; step < total_steps; ++step) {
+		printf("# Step %d", step+1);
+
+		if(step % 100 == 0) { // every 5 min
+			sprintf(filename, "vorticity_%d.bin", step / 100 * 5);
+			FILE * file = fopen(filename, "wb");
+			fwrite(vort, sizeof(float), GRIDS, file);
+			fclose(file);
+		}
+
 
 		for(int k = 0 ; k < 4; ++k) {
+			getDvortdt();
+			// step 14+15 dealiasing dvortdt_c and save to rk?_c)
+			// DEPENDS ON RK?
+			switch(k) {
+				case 0:
+					fop.dealiase(tmp_c, rk1_c);	evolve(rk1_c, dt / 2.0f);
+					break;
+				case 1:
+					fop.dealiase(tmp_c, rk2_c);	evolve(rk2_c, dt / 2.0f);
+					break;
+				case 2:
+					fop.dealiase(tmp_c, rk3_c);	evolve(rk3_c, dt);
+					break;
+				case 3:
+					// Actually the variable rk4_c is not needed because this is the last call
+					// we can simply replace rk4_c by tmp_c.
+					fop.dealiase(tmp_c, tmp_c);
 
-			// step 03 take dvortdx, save as tmp_c
-			fop.gradx(vort_c, tmp_c);
-			// step 04
-			fftwf_execute(p_bwd_dvortdx);
+					// step 24: get new vort_c
+					for(int i=0; i<HALF_GRIDS; ++i){
+						vort_c[i][0] = vort_c0[i][0] + (rk1_c[i][0] + 2.0f * rk2_c[i][0] + 2.0f * rk3_c[i][0] + tmp_c[i][0]) * dt / 6.0f;
+						vort_c[i][1] = vort_c0[i][1] + (rk1_c[i][1] + 2.0f * rk2_c[i][1] + 2.0f * rk3_c[i][1] + tmp_c[i][1]) * dt / 6.0f;
+					}
+					break;
 
-			// step 05 take dvortdy, save as tmp_c
-			fop.grady(vort_c, tmp_c);
-			// step 06
-			fftwf_execute(p_bwd_dvortdy);
-
-			// step 07 get psi_c
-			fop.invertLaplacian(vort_c, psi_c);
-
-			// step 08 get u_c
-			fop.grady(psi_c, tmp_c);
-			// step 09
-			fftwf_execute(p_bwd_u);
-			for(int i=0; i<GRIDS;++i) { u[i] = -u[i]; }
-
-			// step 10 get v_c
-			fop.gradx(psi_c, tmp_c);
-			// step 11
-			fftwf_execute(p_bwd_v);
-
-			// step 12 get dvortdt
-			for(int i=0; i<GRIDS;++i) {
-				dvortdt[i] = - u[i] * dvortdx[i] - v[i] * dvortdy[i];
 			}
-			// step 13 get devortdt_c
-			fftwf_execute(p_fwd_dvortdt);
-
-			// step 14 dealiasing
-
-
 		}
 
 
 		//fftwf_destroy_plan(p);
 		//fftwf_free(in); fftwf_free(out);
 	}
-
-
-
-
-
-
-
+*/
 	return 0;
 }

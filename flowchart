@@ -2,7 +2,7 @@
 Get a term in runge-kutta method
 
 Variable summery:
-  fftwf_complex:  8
+  fftwf_complex:  7
   float        :  6
 
                      #FFT#
@@ -34,9 +34,9 @@ Variable summery:
 21. Restore vort_c          |      |         |vort_c0                                                           |       |     |
     from vort_c0            |      |         |                                                                  |       |     |
 22. Update vort_c by rk3    |      |         |vort_c0                                                           |       |     |
-23. Repeat 02-14 and        |      |         |                                                                  |       |     |     |rk4_c
-    get rk4                 |      |         |                                                                  |       |     |     |
-24. Get Update vort_c by    |      |         |vort_c                                                            |       |     |     |
-    rk1, rk2, rk3, rk4      |      |         |                                                                  |       |     |     |
-25. Output vort if       B  |vort  |         |                                                                  |       |     |     |
-    necessary               |      |         |                                                                  |       |     |     |
+23. Repeat 02-14 and        |      |         |                                                                  |       |     |
+    get rk4                 |      |         |                                                                  |       |     |
+24. Get Update vort_c by    |      |         |vort_c  |rk4_c                                                    |       |     |
+    rk1, rk2, rk3, rk4      |      |         |        |                                                         |       |     |
+25. Output vort if       B  |vort  |         |        |                                                         |       |     |
+    necessary               |      |         |        |                                                         |       |     |
