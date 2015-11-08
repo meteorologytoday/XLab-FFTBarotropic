@@ -1,11 +1,13 @@
-
+#include <cmath>
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
-const float LX = 1.0f;
-const float LY = 1.0f;
+const float L = 600000.0f;
+
+const float LX = L;
+const float LY = L;
 const float NU = 50.0f;
-const int NPTS = 12;
+const int NPTS = 768;
 
 const int XPTS = NPTS;
 const int YPTS = NPTS;

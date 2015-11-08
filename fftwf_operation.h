@@ -1,8 +1,8 @@
 #ifndef FFTWF_OPERATION_H
 #define FFTWF_OPERATION_H
 #include <fftw3.h>
-
 #include <cmath>
+#include <cassert>
 
 const float TWOPI = (acos(-1.0f) * 2.0f);
 
@@ -23,7 +23,7 @@ public:
 	void invertLaplacian(fftwf_complex *in, fftwf_complex *out);
 	void dealiase(fftwf_complex *in, fftwf_complex *out);
 
-	inline int reflectedXWavenumberIndex(int i) {return XPTS - i;};
+	inline int reflectedXWavenumberIndex(int i) {assert(i>=1 && "Input of ReflectedXWavenumberIndex must >= 1");return XPTS - i;};
 	inline int HIDX  (int i, int j) {return HALF_YPTS*i + j;};
 	inline int R_HIDX(int i, int j) {return HIDX(this->reflectedXWavenumberIndex(i),j);};
 };
@@ -39,43 +39,71 @@ template<int XPTS, int YPTS> fftwf_operation<XPTS,YPTS>::fftwf_operation(float L
 	this->dealiase_xwavenumber = (int) ceil(((float)XPTS)/3.0);
 	this->dealiase_ywavenumber = (int) ceil(((float)YPTS)/3.0);
 
+	// Creating partial derivatives
 	for(int i=0; i < this->HALF_XPTS; ++i) {
 		this->gradx_coe[i] = TWOPI * ((float) i) / Lx;
-		this->gradx_coe[this->reflectedXWavenumberIndex(i)] = - this->gradx_coe[i];
+	}
+	for(int i=this->HALF_XPTS; i<XPTS; ++i) {
+		this->gradx_coe[i] = - this->gradx_coe[this->reflectedXWavenumberIndex(i)];
 	}
 
 	for(int j=0; j < this->HALF_YPTS; ++j) {
 		this->grady_coe[j] = TWOPI * ((float) j) / Ly;
 	}
 
+	#ifndef NDEBUG
+	printf("gradx_coe list: \n");
+	for(int i=0; i < XPTS; ++i) {
+		printf("%f ", this->gradx_coe[i]);
+	}
+	printf("\ngrady_coe list:\n");
+	for(int j=0; j < this->HALF_YPTS; ++j) {
+		printf("%f ", grady_coe[j]);
+	}
+	printf("\n");
+	#endif
+
+
+	// Creating Laplacian coefficients
 	for(int i=0; i<this->HALF_XPTS; ++i) {
 		for(int j=0; j<this->HALF_YPTS; ++j) {
 			this->laplacian_coe_inverse[this->HIDX(i,j)] = - (pow(this->gradx_coe[i],2) + pow(this->grady_coe[j],2));
-			this->laplacian_coe_inverse[this->R_HIDX(i,j)] = this->laplacian_coe_inverse[this->HIDX(i,j)];
+			if(i == 0 && j == 0) {this->laplacian_coe_inverse[this->HIDX(i,j)] = 1.0f;} // this coe is special
 
 			this->laplacian_coe[this->HIDX(i,j)] = - (pow(this->gradx_coe[i],2) + pow(this->grady_coe[j],2));
-			this->laplacian_coe[this->R_HIDX(i,j)] = this->laplacian_coe[this->HIDX(i,j)];
 		}
 	}
-	this->laplacian_coe_inverse[this->HIDX(0,0)] = 1.0; // this coe is special
 
+	for(int i=this->HALF_XPTS; i < XPTS; ++i) {
+		for(int j=0; j<this->HALF_YPTS; ++j) {
+			this->laplacian_coe_inverse[this->HIDX(i,j)] = this->laplacian_coe_inverse[this->R_HIDX(i,j)];
+			this->laplacian_coe[this->HIDX(i,j)] = this->laplacian_coe[this->R_HIDX(i,j)];
+		}
+	}
+
+	// Creating mask
 	float generalized_wavenumber_square = pow(this->dealiase_xwavenumber,2) + pow(this->dealiase_ywavenumber,2);
 
-	for(int i = 0; i < HALF_XPTS ; ++i) {
-		for(int j = 0; j < HALF_YPTS; ++j) {
+	for(int i = 0; i < this->HALF_XPTS ; ++i) {
+		for(int j = 0; j < this->HALF_YPTS; ++j) {
 			this->dealiasing_mask[this->HIDX(i,j)] = (pow(i,2) + pow(j,2) >= generalized_wavenumber_square) ? 0.0f : 1.0f;
-			this->dealiasing_mask[this->R_HIDX(i,j)] = this->dealiasing_mask[this->HIDX(i,j)];
+		}
+	}
+	for(int i = this->HALF_XPTS; i<XPTS ; ++i) {
+		for(int j = 0; j < HALF_YPTS; ++j) {
+			this->dealiasing_mask[this->HIDX(i,j)] = this->dealiasing_mask[this->R_HIDX(i,j)];
 		}
 	}
 
-
-/*	for(int i = 0; i < XPTS ; ++i) {
+	#ifndef NDEBUG
+	for(int i = 0; i < XPTS ; ++i) {
 		for(int j = 0; j < HALF_YPTS; ++j) {
 			printf("%d ", (int)(this->dealiasing_mask[this->HIDX(i,j)]));
 		}
 		printf("\n");
 	}
-	*/
+	#endif
+
 }
 
 template<int XPTS, int YPTS> fftwf_operation<XPTS,YPTS>::~fftwf_operation() {
@@ -85,40 +113,34 @@ template<int XPTS, int YPTS> fftwf_operation<XPTS,YPTS>::~fftwf_operation() {
 }
 
 template<int XPTS, int YPTS> void fftwf_operation<XPTS,YPTS>::gradx(fftwf_complex *in, fftwf_complex *out){
-	for(int j=0; j<this->HALF_YPTS; ++j) {
-		for(int i=0; i<this->HALF_XPTS; ++i) {
+	for(int i=0; i<XPTS; ++i) {
+		for(int j=0; j<this->HALF_YPTS; ++j) {
 			out[this->HIDX(i,j)][0] = - in[this->HIDX(i,j)][1] * this->gradx_coe[i];
 			out[this->HIDX(i,j)][1] =   in[this->HIDX(i,j)][0] * this->gradx_coe[i];
-
-			out[this->R_HIDX(i,j)][0] = - in[this->R_HIDX(i,j)][1] * this->gradx_coe[this->reflectedXWavenumberIndex(i)];
-			out[this->R_HIDX(i,j)][1] =   in[this->R_HIDX(i,j)][0] * this->gradx_coe[this->reflectedXWavenumberIndex(i)];
 		}
 	}
 }
 
 template<int XPTS, int YPTS> void fftwf_operation<XPTS,YPTS>::grady(fftwf_complex *in, fftwf_complex *out){
-	for(int j=0; j<this->HALF_YPTS; ++j) {
-		for(int i=0; i<this->HALF_XPTS; ++i) {
+	for(int i=0; i<XPTS; ++i) {
+		for(int j=0; j<this->HALF_YPTS; ++j) {
 			out[this->HIDX(i,j)][0]   = - in[this->HIDX(i,j)][1] * this->grady_coe[j];
 			out[this->HIDX(i,j)][1]   =   in[this->HIDX(i,j)][0] * this->grady_coe[j];
-
-			out[this->R_HIDX(i,j)][0] = - in[this->R_HIDX(i,j)][1] * this->grady_coe[j];
-			out[this->R_HIDX(i,j)][1] =   in[this->R_HIDX(i,j)][0] * this->grady_coe[j];
 		}
 	}
 }
 
 template<int XPTS, int YPTS> void fftwf_operation<XPTS,YPTS>::laplacian(fftwf_complex *in, fftwf_complex *out){
 	for(int i=0; i<this->HALF_GRIDS; ++i) {
-		out[i][0] = - in[i][0] * this->laplacian_coe[i];
-		out[i][1] = - in[i][1] * this->laplacian_coe[i];
+		out[i][0] = in[i][0] * this->laplacian_coe[i];
+		out[i][1] = in[i][1] * this->laplacian_coe[i];
 	}
 }
 
 template<int XPTS, int YPTS> void fftwf_operation<XPTS,YPTS>::invertLaplacian(fftwf_complex *in, fftwf_complex *out){
 	for(int i=0; i<this->HALF_GRIDS; ++i) {
-		out[i][0] = - in[i][0] / this->laplacian_coe_inverse[i];
-		out[i][1] = - in[i][1] / this->laplacian_coe_inverse[i];
+		out[i][0] = in[i][0] / this->laplacian_coe_inverse[i];
+		out[i][1] = in[i][1] / this->laplacian_coe_inverse[i];
 	}
 }
 

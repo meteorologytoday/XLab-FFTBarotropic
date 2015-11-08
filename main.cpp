@@ -1,3 +1,4 @@
+#define NDEBUG
 
 #include <cstdio>
 
@@ -12,6 +13,8 @@
 #include "configuration.h"
 #include "fftwf_operation.h"
 
+#include <assert.h>
+
 float dx, dy, Lx, Ly;
 
 
@@ -23,7 +26,7 @@ fftwf_plan p_fwd_vort,    p_bwd_vort,
 
 fftwf_complex *vort_c0, *vort_c, *lvort_c, *tmp_c, *psi_c, *rk1_c, *rk2_c, *rk3_c, *copy_for_c2r;
 
-int total_steps = 10; //100 * (145 / 5);
+int total_steps = 100 * (30 / 5);
 float dt = 3.0f;
 
 fftwf_operation<XPTS,YPTS> fop(LX, LY);
@@ -59,38 +62,34 @@ float sumSqr(fftwf_complex *c) {
 void print_spectrum(fftwf_complex *in) {
 	for(int i=0; i<XPTS;++i){
 		for(int j=0; j<HALF_YPTS;++j){
-			printf("(%1.2e, %1.2e) ", in[HIDX(i,j)][0], in[HIDX(i,j)][1]);
+			printf("(%+6.2f, %+6.2f) ", in[HIDX(i,j)][0], in[HIDX(i,j)][1]);
 		}
 		printf("\n");
 	}
 }
 
 int main(){
-	printf("Start project2.\n");
+	printf("Start project.\n");
 	std::cout << "C++ feature -- 1st time" << std::endl;
 	// initiate variables
-	vort      = (float*) malloc(sizeof(float) * GRIDS);
-	std::cout << "C++ feature -- 2nd time" << std::endl;
-	u         = (float*) malloc(sizeof(float) * GRIDS);
-	v         = (float*) malloc(sizeof(float) * GRIDS);
-	dvortdx   = (float*) malloc(sizeof(float) * GRIDS);
-	dvortdy   = (float*) malloc(sizeof(float) * GRIDS);
-	dvortdt   = (float*) malloc(sizeof(float) * GRIDS);
-	workspace = (float*) malloc(sizeof(float) * GRIDS);
-	std::cout << "C++ feature222" << std::endl;
-	std::cout << "READY TO END?" << std::endl;
+	vort      = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	u         = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	v         = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	dvortdx   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	dvortdy   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	dvortdt   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	workspace = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+
 	// complex numbers
-	vort_c0   = (fftwf_complex*) malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	vort_c    = (fftwf_complex*) malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	lvort_c   = (fftwf_complex*) malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	tmp_c     = (fftwf_complex*) malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	psi_c     = (fftwf_complex*) malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	rk1_c     = (fftwf_complex*) malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	rk2_c     = (fftwf_complex*) malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	rk3_c     = (fftwf_complex*) malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	copy_for_c2r = (fftwf_complex*) malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	printf("Spectrum complete\n"); fflush(stdout);
-	std::cout << "READY TO END!" << std::endl;
+	vort_c0   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	vort_c    = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	lvort_c   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	tmp_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	psi_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	rk1_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	rk2_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	rk3_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	copy_for_c2r = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 
 	// initializing plan
 	p_fwd_vort       = fftwf_plan_dft_r2c_2d(XPTS, YPTS, vort, vort_c, FFTW_ESTIMATE);
@@ -117,12 +116,17 @@ int main(){
 		return sqrtf(pow(x-centerx,2) + pow(y-centery,2));
 	};
 	auto alpha = [centerx, centery, epsilon, radius](float x, float y) -> float {
-		float c = (y-centery) / radius(x,y);
+		float c;
+		float r = radius(x,y);
+		if(r == 0.0f) {
+			c = 0;
+		} else {
+			c = (y-centery) / radius(x,y);
+		}
 		return sqrtf((1.0 - pow(epsilon,2)) / (1.0 - pow(epsilon*c,2)));
 	};
-	printf("HELLP2\n");
+
 	float x, y;
-	float twopi = acos(-1.0f) * 2.0;
 	for(int i=0; i<XPTS; ++i) {
 		x = i * dx;
 		for(int j=0; j<YPTS; ++j) {
@@ -139,14 +143,10 @@ int main(){
 			} else {
 				vort[IDX(i,j)] = 0;
 			}
-
-			//printf("%f, %f\n", r, 1.0f -r);
-			vort[IDX(i,j)] = sin(twopi/LY * y) * sin(twopi/LX * x);//zeta0 * exp( - pow(r/150000.0,2));
 		}
 	}
 	sprintf(filename, "initial.bin");
 	writeField(filename, vort);
-	printf("HELLP\n");
 
 	auto getDvortdt = [&](bool debug, int step){
 		// step ?? take lvort_c
@@ -154,18 +154,17 @@ int main(){
 
 		// step 03 take dvortdx, save as tmp_c
 		fop.gradx(vort_c, tmp_c);
+
 		// step 04
 		fftwf_execute(p_bwd_dvortdx); fftwf_backward_normalize(dvortdx);
-
 		if(debug) {
 			sprintf(filename, "dvortdx_step_%d.bin", step);
 			writeField(filename, dvortdx);
 		}
 
 		// step 05 take dvortdy, save as tmp_c
-		print_spectrum(vort_c); printf("\n\n");
 		fop.grady(vort_c, tmp_c);
-		print_spectrum(tmp_c);
+
 		// step 06
 		fftwf_execute(p_bwd_dvortdy); fftwf_backward_normalize(dvortdy);
 
@@ -248,7 +247,7 @@ int main(){
 
 		memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
 
-		for(int k = 0 ; k < 1; ++k) {
+		for(int k = 0 ; k < 4; ++k) {
 
 			getDvortdt((step % 100 == 0) && k==0, step);
 
@@ -256,9 +255,7 @@ int main(){
 			// DEPENDS ON RK?
 			switch(k) {
 				case 0:
-
 					fop.dealiase(tmp_c, rk1_c);	evolve(rk1_c, dt / 2.0f);
-
 					break;
 				case 1:
 					fop.dealiase(tmp_c, rk2_c);	evolve(rk2_c, dt / 2.0f);
