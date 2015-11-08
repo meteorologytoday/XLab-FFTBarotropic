@@ -1,21 +1,21 @@
-#define LX (600000.0f)
-#define LY (600000.0f)
-#define NU (50.0f)
 
-#define NPTS (768)
+#ifndef CONFIGURATION_H
+#define CONFIGURATION_H
 
+const float LX = 1.0f;
+const float LY = 1.0f;
+const float NU = 50.0f;
+const int NPTS = 12;
 
-// In this model XPTS == YPTS by default because of dealiasing issue.
-#define XPTS (NPTS)
-#define YPTS (NPTS)
+const int XPTS = NPTS;
+const int YPTS = NPTS;
 
-#define GRIDS (XPTS*YPTS)
+const int GRIDS = XPTS * YPTS;
+const int HALF_XPTS = ((int)(XPTS/2))+1;
+const int HALF_YPTS = ((int)(YPTS/2))+1;
+const int HALF_GRIDS = XPTS * HALF_YPTS;
 
-#define HALF_XPTS ((int)((XPTS/2)+1))
-#define HALF_YPTS ((int)((YPTS/2)+1))
-#define HALF_GRIDS (HALF_XPTS*HALF_YPTS)
+inline int IDX(int i, int j) { return (YPTS*i + j); }
+inline int HIDX(int i, int j) { return (HALF_YPTS*i + j); }
 
-#define IDX(i,j) (XPTS*j+i)
-#define HIDX(i,j) (HALF_XPTS*j+i)
-
-#define SWAP(a,b) {a^=b,b^=a,a^=b;}
+#endif
