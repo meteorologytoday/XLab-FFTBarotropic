@@ -1,0 +1,16 @@
+# XLab-FFTBarotropic
+# Author: Hsu, Tien-Yiao
+# Purpose:
+This program is to run the 2-dimensional bartropic model with additional output of
+  (1) filamentation time (Rozoff et al. 2006) computed and
+  (2) effective eddy diffusivity (Hendricks and Schubert 2009)
+  (3) deformation factor (developed by Hsu, Tien-Yiao)
+# Method
+  (1) Pseudo-spectral method (2/3 rule applied)
+  (2) Runge-Kutto of order 4. (RK4)
+  
+# Compatible Compiler
+  (1) CygwinGcc 4.8.3 with C++ 11 standard (lambda expression involved)
+  
+# Dependency
+  (1) FFTW3 3.3.4 or above (we use float version -> fftw3f library)
