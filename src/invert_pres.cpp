@@ -1,3 +1,13 @@
+/*
+ * Author: Hsu, Tien-Yiao
+ *
+ * Description: 
+ *
+ * This program uses the psi output from main program to
+ * invert pressure anomaly.
+ *
+ */
+
 #define NDEBUG
 
 #include <cstdio>
@@ -39,90 +49,32 @@ void fftwf_backward_normalize(float *data) {
 	}
 }
 
-float sumSqr(fftwf_complex *c) {
-	float strength = 0;
-	for(int i=0; i < HALF_GRIDS;++i){
-		strength += pow(c[i][0],2) + pow(c[i][1],2);
-	}
-	return strength;
-}
-
-void print_spectrum(fftwf_complex *in) {
-	for(int i=0; i < XPTS;++i){
-		for(int j=0; j < HALF_YPTS;++j){
-			printf("(%+6.2f, %+6.2f) ", in[HIDX(i,j)][0], in[HIDX(i,j)][1]);
-		}
-		printf("\n");
-	}
-}
-
-void print_error(char * str) {
-	printf("Error: %s\n", str);
-}
-
 int main(int argc, char* args[]) {
 
-	char opt;
-
-	while ((opt = getopt(argc, args, "I:O:i:")) != EOF) {
-		switch(opt) {
-			case 'I':
-				input = optarg;
-				break;
-			case 'O':
-				output = optarg;
-				break;
-			case 'i':
-				init_file = optarg;
-				break;
-
-		}
-	}
-
-	printf("##### Model setting #####\n");
-	printf("Initial file          : %s \n", init_file.c_str());
-	printf("Input folder          : %s \n", input.c_str());
-	printf("Output folder         : %s \n", output.c_str());
-	printf("Length X              : %.3f [m]\n", LX);
-	printf("Length Y              : %.3f [m]\n", LY);
-	printf("Spatial Resolution dx : %.3f [m]\n", dx);
-	printf("Spatial Resolution dy : %.3f [m]\n", dy);
-	printf("Time Resolution dt    : %.3f [s]\n", dt);
-	printf("#########################\n\n\n", dt);
-
-	printf("Start project.\n");
-	std::cout << "C++ feature -- 1st time" << std::endl;
 	// initiate variables
-	vort      = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	u         = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	v         = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	dvortdx   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	dvortdy   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	dvortdt   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	workspace = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	pres      = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	psi       = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	dpsidx2   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	dpsidy2   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	dpsidxdy  = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	gaus_curv = (float*) fftwf_malloc(sizeof(float) * GRIDS);
 
 	// complex numbers
-	vort_c0   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	vort_c    = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	lvort_c   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);  // laplacian vorticity complex
-	tmp_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	psi_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	rk1_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	rk2_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	rk3_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	copy_for_c2r = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	psi_c      = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	dpsidx2_c  = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	dpsidy2_c  = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	dpsidxdy_c = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	lap_prec_c = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 
 	// initializing plan
-	p_fwd_vort       = fftwf_plan_dft_r2c_2d(XPTS, YPTS, vort, vort_c, FFTW_ESTIMATE);
-	p_fwd_dvortdt    = fftwf_plan_dft_r2c_2d(XPTS, YPTS, dvortdt, tmp_c, FFTW_ESTIMATE);
+	p_fwd_psi        = fftwf_plan_dft_r2c_2d(XPTS, YPTS, psi, psi_c, FFTW_ESTIMATE);
+	p_fwd_gaus_curv2lap_prec_c = fftwf_plan_dft_r2c_2d(XPTS, YPTS, gaus_curv, lap_pres_c FFTW_ESTIMATE);
 
-	p_bwd_vort       = fftwf_plan_dft_c2r_2d(XPTS, YPTS, vort_c, vort, FFTW_ESTIMATE);
-	p_bwd_dvortdx    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, dvortdx, FFTW_ESTIMATE);
-	p_bwd_dvortdy    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, dvortdy, FFTW_ESTIMATE);
-	p_bwd_u          = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, u, FFTW_ESTIMATE);
-	p_bwd_v          = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, v, FFTW_ESTIMATE);
+	p_bwd_dpsidx2    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, dpsidx2_c, dpsidx2, FFTW_ESTIMATE);
+	p_bwd_dpsidy2    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, dpsidy2_c, dpsidx2, FFTW_ESTIMATE);
+	p_bwd_dpsidxdy   = fftwf_plan_dft_c2r_2d(XPTS, YPTS, dpsidxdy_c, dpsidxdy, FFTW_ESTIMATE);
 
-	p_bwd_psi        = fftwf_plan_dft_c2r_2d(XPTS, YPTS, psi_c, workspace, FFTW_ESTIMATE);
+	p_bwd_pres        = fftwf_plan_dft_c2r_2d(XPTS, YPTS, pres_c, pres, FFTW_ESTIMATE);
 
 	// read input
 	Lx = LX;
