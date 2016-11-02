@@ -10,11 +10,12 @@
 #include <cstdlib>
 #include <iostream>
 #include <fftw3.h>
-#include "configuration.h"
-#include "fftwf_operation.h"
-
+#include <errno.h>
 #include <assert.h>
 
+#include "configuration.h"
+#include "fftwf_operation.h"
+#include "fieldio.hpp"
 float dx, dy, Lx, Ly;
 
 
@@ -33,42 +34,40 @@ fftwf_operation<XPTS,YPTS> fop(LX, LY);
 
 char filename[256];
 
-void writeField(const char * filename, float *data) {
-
-	FILE * file = fopen(filename, "wb");
-	int flg;
-	if((flg = fwrite(data, sizeof(float), GRIDS, file)) < 0) {
-		printf("ERROR! %d\n", flg);
-	}
-	fclose(file);
-
-	printf("Output %s\n", filename);
-}
-
 void fftwf_backward_normalize(float *data) {
-	for(int i=0; i<GRIDS; ++i) {
+	for(int i=0; i < GRIDS; ++i) {
 		data[i] /= GRIDS;
 	}
 }
 
 float sumSqr(fftwf_complex *c) {
 	float strength = 0;
-	for(int i=0; i<HALF_GRIDS;++i){
+	for(int i=0; i < HALF_GRIDS;++i){
 		strength += pow(c[i][0],2) + pow(c[i][1],2);
 	}
 	return strength;
 }
 
 void print_spectrum(fftwf_complex *in) {
-	for(int i=0; i<XPTS;++i){
-		for(int j=0; j<HALF_YPTS;++j){
+	for(int i=0; i < XPTS;++i){
+		for(int j=0; j < HALF_YPTS;++j){
 			printf("(%+6.2f, %+6.2f) ", in[HIDX(i,j)][0], in[HIDX(i,j)][1]);
 		}
 		printf("\n");
 	}
 }
 
-int main(){
+void print_error(char * str) {
+	printf("Error: %s\n", str);
+}
+
+int main(int argc, char* args[]) {
+
+	if(argc != 2) {
+		print_error("No input filename.");
+		return 1;
+	}
+
 	printf("Start project.\n");
 	std::cout << "C++ feature -- 1st time" << std::endl;
 	// initiate variables
@@ -83,7 +82,7 @@ int main(){
 	// complex numbers
 	vort_c0   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	vort_c    = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	lvort_c   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	lvort_c   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);  // laplacian vorticity complex
 	tmp_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	psi_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	rk1_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
@@ -109,44 +108,7 @@ int main(){
 	dx = Lx / XPTS;
 	dy = Ly / YPTS;
 
-	float centerx = Lx / 2.0, centery = Ly / 2.0, epsilon = 0.7, lambda = 2.0, zeta0 = .005f, r_i = 30000.0, r_o = 60000.0;
-	float r, r_i_alpha, r_o_alpha, r_prime;
-
-	auto radius = [centerx, centery](float x, float y) -> float {
-		return sqrtf(pow(x-centerx,2) + pow(y-centery,2));
-	};
-	auto alpha = [centerx, centery, epsilon, radius](float x, float y) -> float {
-		float c;
-		float r = radius(x,y);
-		if(r == 0.0f) {
-			c = 0;
-		} else {
-			c = (y-centery) / radius(x,y);
-		}
-		return sqrtf((1.0 - pow(epsilon,2)) / (1.0 - pow(epsilon*c,2)));
-	};
-
-	float x, y;
-	for(int i=0; i<XPTS; ++i) {
-		x = i * dx;
-		for(int j=0; j<YPTS; ++j) {
-			y = j * dy;
-			r = radius(x,y);
-			r_i_alpha = r_i * alpha(x,y);
-			r_o_alpha = r_o * alpha(x,y);
-
-			if(r <= r_i_alpha) {
-				vort[IDX(i,j)] = zeta0;
-			} else if (r <= r_o_alpha) {
-				r_prime = (r - r_i_alpha)/(r_o_alpha - r_i_alpha);
-				vort[IDX(i,j)] = zeta0 * (1.0 - exp( - lambda / r_prime * exp(1.0 / (r_prime - 1))));
-			} else {
-				vort[IDX(i,j)] = 0;
-			}
-		}
-	}
-	sprintf(filename, "initial.bin");
-	writeField(filename, vort);
+	readField(args[1], vort, GRIDS);
 
 	auto getDvortdt = [&](bool debug, int step){
 		// step ?? take lvort_c
@@ -159,7 +121,7 @@ int main(){
 		fftwf_execute(p_bwd_dvortdx); fftwf_backward_normalize(dvortdx);
 		if(debug) {
 			sprintf(filename, "dvortdx_step_%d.bin", step);
-			writeField(filename, dvortdx);
+			writeField(filename, dvortdx, GRIDS);
 		}
 
 		// step 05 take dvortdy, save as tmp_c
@@ -170,7 +132,7 @@ int main(){
 
 		if(debug) {
 			sprintf(filename, "dvortdy_step_%d.bin", step);
-			writeField(filename, dvortdy);
+			writeField(filename, dvortdy, GRIDS);
 		}
 
 		// step 07 get psi_c
@@ -182,7 +144,7 @@ int main(){
 
 			fftwf_execute(p_bwd_psi); fftwf_backward_normalize(workspace);
 			sprintf(filename, "psi_step_%d.bin", step);
-			writeField(filename, workspace);
+			writeField(filename, workspace, GRIDS);
 
 			 // restore vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(psi_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
@@ -196,7 +158,7 @@ int main(){
 
 		if(debug) {
 			sprintf(filename, "u_step_%d.bin", step);
-			writeField(filename, u);
+			writeField(filename, u, GRIDS);
 		}
 
 		// step 10 get v_c
@@ -206,7 +168,7 @@ int main(){
 
 		if(debug) {
 			sprintf(filename, "v_step_%d.bin", step);
-			writeField(filename, v);
+			writeField(filename, v, GRIDS);
 		}
 
 		// step 12 get dvortdt
@@ -216,7 +178,7 @@ int main(){
 
 		if(debug) {
 			sprintf(filename, "dvortdt_step_%d.bin", step);
-			writeField(filename, dvortdt);
+			writeField(filename, dvortdt, GRIDS);
 		}
 
 		// step 13 get dvortdt_c and save in tmp_c
@@ -286,7 +248,7 @@ int main(){
 
 			fftwf_execute(p_bwd_vort); fftwf_backward_normalize(vort);
 			sprintf(filename, "vort_%d.bin", (step+1) / 20);
-			writeField(filename, vort);
+			writeField(filename, vort, GRIDS);
 
 			 // restore vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(vort_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
