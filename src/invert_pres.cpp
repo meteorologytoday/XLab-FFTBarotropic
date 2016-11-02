@@ -28,9 +28,6 @@
 #include "fftwf_operation.hpp"
 #include "fieldio.hpp"
 
-using namespace std;
-
-float dx, dy, Lx, Ly;
 float *vort, *u, *v, *dvortdx, *dvortdy, *dvortdt, *workspace;
 fftwf_plan p_fwd_vort,    p_bwd_vort,
 		   p_bwd_dvortdx, p_bwd_dvortdy,
@@ -82,53 +79,19 @@ int main(int argc, char* args[]) {
 	dx = Lx / XPTS;
 	dy = Ly / YPTS;
 
-	sprintf(filename, "%s/%s", input.c_str(), init_file.c_str());
-	readField(filename, vort, GRIDS);
+	char filename[1024]; from_file[1024]; to_file[1024];
+	while(fgets(filename, 1024, stdin) != NULL) {
+		readField(from_file, psi, GRIDS);
+		fftwf_execute(p_fwd_psi);
 
-	auto getDvortdt = [&](bool debug, int step){
-		// step ?? take lvort_c
-		fop.laplacian(vort_c, lvort_c);
 
-		// step 03 take dvortdx, save as tmp_c
-		fop.gradx(vort_c, tmp_c);
-
-		// step 04
-		fftwf_execute(p_bwd_dvortdx); fftwf_backward_normalize(dvortdx);
-		if(debug) {
-			sprintf(filename, "%s/dvortdx_step_%d.bin", output.c_str(), step);
-			writeField(filename, dvortdx, GRIDS);
-		}
-
-		// step 05 take dvortdy, save as tmp_c
-		fop.grady(vort_c, tmp_c);
-
-		// step 06
-		fftwf_execute(p_bwd_dvortdy); fftwf_backward_normalize(dvortdy);
-
-		if(debug) {
-			sprintf(filename, "%s/dvortdy_step_%d.bin", output.c_str(), step);
-			writeField(filename, dvortdy, GRIDS);
-		}
-
-		// step 07 get psi_c
-		fop.invertLaplacian(vort_c, psi_c);
-
-		if(debug) {
-			 // backup vort_c because c2r must destroy input (NO!!!!!)
-			memcpy(copy_for_c2r, psi_c, sizeof(fftwf_complex) * HALF_GRIDS);
-
-			fftwf_execute(p_bwd_psi); fftwf_backward_normalize(workspace);
-			sprintf(filename, "%s/psi_step_%d.bin", output.c_str(), step);
-			writeField(filename, workspace, GRIDS);
-
-			 // restore vort_c because c2r must destroy input (NO!!!!!)
-			memcpy(psi_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
-		}
-
-		// step 08 get u_c
-		fop.grady(psi_c, tmp_c);
-		// step 09
 		fftwf_execute(p_bwd_u); fftwf_backward_normalize(u);
+
+
+		writeField(to_file, pres, GRIDS);
+	}
+
+
 		for(int i=0; i<GRIDS;++i) { u[i] = -u[i]; }
 
 		if(debug) {
