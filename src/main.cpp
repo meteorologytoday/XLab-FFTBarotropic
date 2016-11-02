@@ -15,8 +15,9 @@
 #include <unistd.h> // getopt
 
 #include "configuration.hpp"
-#include "fftwf_operation.hpp"
 #include "fieldio.hpp"
+#include "fftwfop.cpp" // template class must include its implementation
+
 
 using namespace std;
 
@@ -88,7 +89,7 @@ int main(int argc, char* args[]) {
 	printf("Spatial Resolution dx : %.3f [m]\n", dx);
 	printf("Spatial Resolution dy : %.3f [m]\n", dy);
 	printf("Time Resolution dt    : %.3f [s]\n", dt);
-	printf("#########################\n\n\n", dt);
+	printf("#########################\n\n\n");
 
 	printf("Start project.\n");
 	std::cout << "C++ feature -- 1st time" << std::endl;

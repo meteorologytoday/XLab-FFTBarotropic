@@ -9,6 +9,11 @@ INPUTPATH=input
 OUTPUTPATH=output
 BUILD_DIRS=$(LIBPATH) $(BINPATH) $(INPUTPATH) $(OUTPUTPATH)
 
+EX_LIBS=fftw3f
+IN_LIBS=fieldio
+
+CPP_INC_LIBS=$(foreach lib,$(EX_LIBS),-l$(lib)) $(foreach lib,$(IN_LIBS),-l$(lib))
+
 .DEFAULT_GOAL := all
 
 # VPATH specifies the search path
@@ -21,7 +26,7 @@ lib%.so: %.cpp
 	$(CPP) $(CPPFLAGS) -L$(LIBPATH) -lfieldio -o $(BINPATH)/$@ $<
 
 main.out: main.cpp
-	$(CPP) $(CPPFLAGS) -L$(LIBPATH) -lfftw3f -lfieldio -o $(BINPATH)/$@ $<
+	$(CPP) $(CPPFLAGS) -L$(LIBPATH) $(CPP_INC_LIBS) -o $(BINPATH)/$@ $<
 
 $(BUILD_DIRS):
 	$(MKDIR) $@
@@ -39,7 +44,7 @@ clean:
 main: main.out
 
 .PHONY: libs
-libs: libfieldio.so
+libs: libfieldio.so libfftwfop.so
 
 .PHONY: makefield
 makefield: makefield.out
