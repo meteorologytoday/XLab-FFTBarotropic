@@ -18,7 +18,7 @@ lib%.so: %.cpp
 	$(CPP) $(CPPFLAGS) -shared -fPIC -o $(LIBPATH)/$@ $<
 
 main.out: main.cpp
-	$(CPP) $(CPPFLAGS) -lfftw3f -lfieldio -o $(BINPATH)/$@ $<
+	$(CPP) $(CPPFLAGS) -L$(LIBPATH) -lfftw3f -lfieldio -o $(BINPATH)/$@ $<
 
 $(BUILD_DIRS):
 	$(MKDIR) $@
