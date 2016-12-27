@@ -15,6 +15,10 @@ This program is to run the 2-dimensional bartropic model with additional output 
 # Dependency
   (1) FFTW3 3.3.4 or above (we use float version -> fftw3f library)
 
+    # For yum users:
+    yum install -y fftw-devel fftw-libs-single
+
+
 # Build
     make
 
