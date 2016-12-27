@@ -1,14 +1,21 @@
 #include <cstdio>
+#include <cstdlib>
 
 #define _USE_MATH_DEFINES
 #include <cmath>
-#include "configuration.h"
 #include <errno.h>
+
+#include "configuration.hpp"
+#include "fieldio.hpp"
+
 
 int main() {
 	
-	float centerx = Lx / 2.0, centery = Ly / 2.0, epsilon = 0.7, lambda = 2.0, zeta0 = .005f, r_i = 30000.0, r_o = 60000.0;
+	float centerx = LX / 2.0, centery = LY / 2.0, epsilon = 0.7, lambda = 2.0, zeta0 = .005f, r_i = 30000.0, r_o = 60000.0;
+	float dx = LX / XPTS, dy = LY / YPTS;
 	float r, r_i_alpha, r_o_alpha, r_prime;
+
+	float* vort = (float*) malloc(sizeof(float) * GRIDS);
 
 	auto radius = [centerx, centery](float x, float y) -> float {
 		return sqrtf(pow(x-centerx,2) + pow(y-centery,2));
@@ -43,8 +50,8 @@ int main() {
 			}
 		}
 	}
-	sprintf(filename, "initial.bin");
-	writeField(filename, vort);
+
+	writeField("initial.bin", vort, GRIDS);
 
 	return 0;
 }

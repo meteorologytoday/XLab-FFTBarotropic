@@ -13,8 +13,8 @@
 #include <errno.h>
 #include <assert.h>
 
-#include "configuration.h"
-#include "fftwf_operation.h"
+#include "configuration.hpp"
+#include "fftwf_operation.hpp"
 #include "fieldio.hpp"
 float dx, dy, Lx, Ly;
 
@@ -26,9 +26,6 @@ fftwf_plan p_fwd_vort,    p_bwd_vort,
 		   p_fwd_dvortdt, p_bwd_psi;
 
 fftwf_complex *vort_c0, *vort_c, *lvort_c, *tmp_c, *psi_c, *rk1_c, *rk2_c, *rk3_c, *copy_for_c2r;
-
-int total_steps = 100 * (30 / 5);
-float dt = 3.0f;
 
 fftwf_operation<XPTS,YPTS> fop(LX, LY);
 

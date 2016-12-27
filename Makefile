@@ -17,6 +17,9 @@ VPATH=$(SRCPATH)
 lib%.so: %.cpp
 	$(CPP) $(CPPFLAGS) -shared -fPIC -o $(LIBPATH)/$@ $<
 
+%.out: %.cpp
+	$(CPP) $(CPPFLAGS) -L$(LIBPATH) -lfieldio -o $(BINPATH)/$@ $<
+
 main.out: main.cpp
 	$(CPP) $(CPPFLAGS) -L$(LIBPATH) -lfftw3f -lfieldio -o $(BINPATH)/$@ $<
 
@@ -38,5 +41,9 @@ main: main.out
 .PHONY: libs
 libs: libfieldio.so
 
+.PHONY: makefield
+makefield: makefield.out
+
+
 .PHONY: all
-all: | dirs libs main
+all: | dirs libs main makefield

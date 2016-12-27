@@ -20,4 +20,8 @@ const int HALF_GRIDS = XPTS * HALF_YPTS;
 inline int IDX(int i, int j) { return (YPTS*i + j); }
 inline int HIDX(int i, int j) { return (HALF_YPTS*i + j); }
 
+const int total_steps = 100 * (30 / 5);
+const float dt = 3.0f;
+
+
 #endif
