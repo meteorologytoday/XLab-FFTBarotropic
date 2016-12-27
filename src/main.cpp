@@ -12,13 +12,15 @@
 #include <fftw3.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h> // getopt
 
 #include "configuration.hpp"
 #include "fftwf_operation.hpp"
 #include "fieldio.hpp"
+
+using namespace std;
+
 float dx, dy, Lx, Ly;
-
-
 float *vort, *u, *v, *dvortdx, *dvortdy, *dvortdt, *workspace;
 fftwf_plan p_fwd_vort,    p_bwd_vort,
 		   p_bwd_dvortdx, p_bwd_dvortdy,
@@ -60,10 +62,32 @@ void print_error(char * str) {
 
 int main(int argc, char* args[]) {
 
-	if(argc != 2) {
-		print_error("No input filename.");
-		return 1;
+	char opt;
+
+	while ((opt = getopt(argc, args, "I:O:i:")) != EOF) {
+		switch(opt) {
+			case 'I':
+				input = optarg;
+				break;
+			case 'O':
+				output = optarg;
+				break;
+			case 'i':
+				init_file = optarg;
+				break;
+
+		}
 	}
+
+	printf("##### Model setting #####\n");
+	printf("Initial file          : %s \n", init_file.c_str());
+	printf("Input folder          : %s \n", input.c_str());
+	printf("Output folder         : %s \n", output.c_str());
+	printf("Length X              : %.3f [m]\n", LX);
+	printf("Length Y              : %.3f [m]\n", LY);
+	printf("Spatial Resolution dx : %.3f [m]\n", dx);
+	printf("Spatial Resolution dy : %.3f [m]\n", dy);
+	printf("Time Resolution dt    : %.3f [s]\n", dt);
 
 	printf("Start project.\n");
 	std::cout << "C++ feature -- 1st time" << std::endl;
@@ -105,7 +129,8 @@ int main(int argc, char* args[]) {
 	dx = Lx / XPTS;
 	dy = Ly / YPTS;
 
-	readField(args[1], vort, GRIDS);
+	sprintf(filename, "%s/%s", input.c_str(), init_file.c_str());
+	readField(filename, vort, GRIDS);
 
 	auto getDvortdt = [&](bool debug, int step){
 		// step ?? take lvort_c
@@ -117,7 +142,7 @@ int main(int argc, char* args[]) {
 		// step 04
 		fftwf_execute(p_bwd_dvortdx); fftwf_backward_normalize(dvortdx);
 		if(debug) {
-			sprintf(filename, "dvortdx_step_%d.bin", step);
+			sprintf(filename, "%s/dvortdx_step_%d.bin", output.c_str(), step);
 			writeField(filename, dvortdx, GRIDS);
 		}
 
@@ -128,7 +153,7 @@ int main(int argc, char* args[]) {
 		fftwf_execute(p_bwd_dvortdy); fftwf_backward_normalize(dvortdy);
 
 		if(debug) {
-			sprintf(filename, "dvortdy_step_%d.bin", step);
+			sprintf(filename, "%s/dvortdy_step_%d.bin", output.c_str(), step);
 			writeField(filename, dvortdy, GRIDS);
 		}
 
@@ -140,7 +165,7 @@ int main(int argc, char* args[]) {
 			memcpy(copy_for_c2r, psi_c, sizeof(fftwf_complex) * HALF_GRIDS);
 
 			fftwf_execute(p_bwd_psi); fftwf_backward_normalize(workspace);
-			sprintf(filename, "psi_step_%d.bin", step);
+			sprintf(filename, "%s/psi_step_%d.bin", output.c_str(), step);
 			writeField(filename, workspace, GRIDS);
 
 			 // restore vort_c because c2r must destroy input (NO!!!!!)
@@ -154,7 +179,7 @@ int main(int argc, char* args[]) {
 		for(int i=0; i<GRIDS;++i) { u[i] = -u[i]; }
 
 		if(debug) {
-			sprintf(filename, "u_step_%d.bin", step);
+			sprintf(filename, "%s/u_step_%d.bin", output.c_str(), step);
 			writeField(filename, u, GRIDS);
 		}
 
@@ -164,7 +189,7 @@ int main(int argc, char* args[]) {
 		fftwf_execute(p_bwd_v); fftwf_backward_normalize(v);
 
 		if(debug) {
-			sprintf(filename, "v_step_%d.bin", step);
+			sprintf(filename, "%s/v_step_%d.bin", output.c_str(), step);
 			writeField(filename, v, GRIDS);
 		}
 
@@ -174,7 +199,7 @@ int main(int argc, char* args[]) {
 		}
 
 		if(debug) {
-			sprintf(filename, "dvortdt_step_%d.bin", step);
+			sprintf(filename, "%s/dvortdt_step_%d.bin", output.c_str(), step);
 			writeField(filename, dvortdt, GRIDS);
 		}
 
@@ -244,7 +269,7 @@ int main(int argc, char* args[]) {
 			memcpy(copy_for_c2r, vort_c, sizeof(fftwf_complex) * HALF_GRIDS);
 
 			fftwf_execute(p_bwd_vort); fftwf_backward_normalize(vort);
-			sprintf(filename, "vort_%d.bin", (step+1) / 20);
+			sprintf(filename, "%s/vort_%d.bin", output.c_str(), (step+1) / 20);
 			writeField(filename, vort, GRIDS);
 
 			 // restore vort_c because c2r must destroy input (NO!!!!!)

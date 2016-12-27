@@ -51,7 +51,8 @@ int main() {
 		}
 	}
 
-	writeField("initial.bin", vort, GRIDS);
+	std::string file = input + "/" + init_file;
+	writeField(file.c_str(), vort, GRIDS);
 
 	return 0;
 }

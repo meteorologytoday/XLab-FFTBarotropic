@@ -1,4 +1,5 @@
 #include <cmath>
+#include <iostream>
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
 
@@ -23,5 +24,8 @@ inline int HIDX(int i, int j) { return (HALF_YPTS*i + j); }
 const int total_steps = 100 * (30 / 5);
 const float dt = 3.0f;
 
+std::string input = "input";
+std::string output = "output";
+std::string init_file = "initial_vorticity.bin";
 
 #endif
