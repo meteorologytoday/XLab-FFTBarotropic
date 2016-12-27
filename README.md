@@ -22,6 +22,7 @@ This program is to run the 2-dimensional bartropic model with additional output 
 # Build
     make
 
+# Run Program
     # Generate example initial field
     ./bin/makefield.out   # output to "output/initial_vorticity.bin"
     
