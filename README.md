@@ -14,3 +14,17 @@ This program is to run the 2-dimensional bartropic model with additional output 
   
 # Dependency
   (1) FFTW3 3.3.4 or above (we use float version -> fftw3f library)
+
+# Build
+    make
+
+    # Generate example initial field
+    ./bin/makefield.out   # output to "output/initial_vorticity.bin"
+    
+    # Execute main program
+    ./bin/main.out
+    
+    # Customize input/output folder and initial file name
+    ./bin/main.out -imyinput -omyoutput -Imyinitialfile
+
+
