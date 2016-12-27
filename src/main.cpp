@@ -88,6 +88,7 @@ int main(int argc, char* args[]) {
 	printf("Spatial Resolution dx : %.3f [m]\n", dx);
 	printf("Spatial Resolution dy : %.3f [m]\n", dy);
 	printf("Time Resolution dt    : %.3f [s]\n", dt);
+	printf("#########################\n\n\n", dt);
 
 	printf("Start project.\n");
 	std::cout << "C++ feature -- 1st time" << std::endl;
