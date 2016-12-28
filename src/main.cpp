@@ -15,8 +15,9 @@
 #include <unistd.h> // getopt
 
 #include "configuration.hpp"
-#include "fftwf_operation.hpp"
 #include "fieldio.hpp"
+#include "fftwfop.cpp" // template class must include its implementation
+
 
 using namespace std;
 
@@ -88,9 +89,17 @@ int main(int argc, char* args[]) {
 	printf("Spatial Resolution dx : %.3f [m]\n", dx);
 	printf("Spatial Resolution dy : %.3f [m]\n", dy);
 	printf("Time Resolution dt    : %.3f [s]\n", dt);
+	printf("#########################\n\n\n");
 
 	printf("Start project.\n");
-	std::cout << "C++ feature -- 1st time" << std::endl;
+	
+	// open log
+	FILE *log_fd = fopen("log", "w");
+	if(log_fd == NULL) {
+		perror("Open log file");
+	}
+
+
 	// initiate variables
 	vort      = (float*) fftwf_malloc(sizeof(float) * GRIDS);
 	u         = (float*) fftwf_malloc(sizeof(float) * GRIDS);
@@ -144,6 +153,7 @@ int main(int argc, char* args[]) {
 		if(debug) {
 			sprintf(filename, "%s/dvortdx_step_%d.bin", output.c_str(), step);
 			writeField(filename, dvortdx, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
 
 		// step 05 take dvortdy, save as tmp_c
@@ -155,6 +165,7 @@ int main(int argc, char* args[]) {
 		if(debug) {
 			sprintf(filename, "%s/dvortdy_step_%d.bin", output.c_str(), step);
 			writeField(filename, dvortdy, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
 
 		// step 07 get psi_c
@@ -167,6 +178,7 @@ int main(int argc, char* args[]) {
 			fftwf_execute(p_bwd_psi); fftwf_backward_normalize(workspace);
 			sprintf(filename, "%s/psi_step_%d.bin", output.c_str(), step);
 			writeField(filename, workspace, GRIDS);
+			fprintf(log_fd, "%s\n", filename);
 
 			 // restore vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(psi_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
@@ -181,6 +193,7 @@ int main(int argc, char* args[]) {
 		if(debug) {
 			sprintf(filename, "%s/u_step_%d.bin", output.c_str(), step);
 			writeField(filename, u, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
 
 		// step 10 get v_c
@@ -191,6 +204,7 @@ int main(int argc, char* args[]) {
 		if(debug) {
 			sprintf(filename, "%s/v_step_%d.bin", output.c_str(), step);
 			writeField(filename, v, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
 
 		// step 12 get dvortdt
@@ -201,6 +215,7 @@ int main(int argc, char* args[]) {
 		if(debug) {
 			sprintf(filename, "%s/dvortdt_step_%d.bin", output.c_str(), step);
 			writeField(filename, dvortdt, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
 
 		// step 13 get dvortdt_c and save in tmp_c
@@ -271,6 +286,7 @@ int main(int argc, char* args[]) {
 			fftwf_execute(p_bwd_vort); fftwf_backward_normalize(vort);
 			sprintf(filename, "%s/vort_%d.bin", output.c_str(), (step+1) / 20);
 			writeField(filename, vort, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 
 			 // restore vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(vort_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
@@ -280,6 +296,8 @@ int main(int argc, char* args[]) {
 		//fftwf_destroy_plan(p);
 		//fftwf_free(in); fftwf_free(out);
 	}
+
+	fclose(log_fd);
 	printf("Program ends. Congrats!\n");
 	return 0;
 }

@@ -1,5 +1,5 @@
 CPP=g++
-CPPFLAGS=-Wall -std=c++11
+CPPFLAGS=-Wall -std=c++11 -O3
 MKDIR=mkdir -p
 
 SRCPATH=src
@@ -8,6 +8,17 @@ BINPATH=bin
 INPUTPATH=input
 OUTPUTPATH=output
 BUILD_DIRS=$(LIBPATH) $(BINPATH) $(INPUTPATH) $(OUTPUTPATH)
+
+EX_LIBS=fftw3f
+IN_LIBS=fieldio
+
+CPP_INC_LIBS=$(foreach lib,$(EX_LIBS),-l$(lib)) $(foreach lib,$(IN_LIBS),-l$(lib))
+LIB_SO=$(foreach lib,$(IN_LIBS),lib$(lib).so)
+
+EXE=main invert_pres
+EXE_OUT=$(foreach exe,$(EXE),$(exe).out)
+
+MKFIELDS=$(shell find $(SOURCEDIR) -name 'makefield-*.cpp');
 
 .DEFAULT_GOAL := all
 
@@ -18,10 +29,10 @@ lib%.so: %.cpp
 	$(CPP) $(CPPFLAGS) -shared -fPIC -o $(LIBPATH)/$@ $<
 
 %.out: %.cpp
-	$(CPP) $(CPPFLAGS) -L$(LIBPATH) -lfieldio -o $(BINPATH)/$@ $<
+	$(CPP) $(CPPFLAGS) -L$(LIBPATH) $(CPP_INC_LIBS) -o $(BINPATH)/$@ $<
 
 main.out: main.cpp
-	$(CPP) $(CPPFLAGS) -L$(LIBPATH) -lfftw3f -lfieldio -o $(BINPATH)/$@ $<
+	$(CPP) $(CPPFLAGS) -L$(LIBPATH) $(CPP_INC_LIBS) -o $(BINPATH)/$@ $<
 
 $(BUILD_DIRS):
 	$(MKDIR) $@
@@ -31,19 +42,20 @@ dirs: $(BUILD_DIRS)
 
 .PHONY: clean
 clean:
+	rm -f log
 	for dir in $(BUILD_DIRS); do \
 		rm -rf $$dir; \
 	done
 
-.PHONY: main
-main: main.out
+.PHONY: exe
+exe: $(EXE_OUT)
 
 .PHONY: libs
-libs: libfieldio.so
+libs: $(LIB_SO)
 
 .PHONY: makefield
-makefield: makefield.out
+makefield: makefield-elliptic-vortex.out makefield-const-vortex.out
 
 
 .PHONY: all
-all: | dirs libs main makefield
+all: | dirs libs exe makefield
