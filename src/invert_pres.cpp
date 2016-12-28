@@ -43,6 +43,16 @@ void fftwf_backward_normalize(float *data) {
 	}
 }
 
+void trim(char * str) {
+	char * p = str + strlen(str) - 1;
+	while(p >= str) {
+		if(strcmp(p,"\n") == 0) {
+			*p = '\0';
+		}
+		--p;
+	}
+}
+
 int main(int argc, char* args[]) {
 
 	// initiate variables
@@ -76,9 +86,7 @@ int main(int argc, char* args[]) {
 	char * sep_beg;
 	char sep[] = "=>";
 	while(fgets(filename, 1024, stdin) != NULL) {
-
-
-		
+		trim(filename);	
 		if( (sep_beg  = strstr (filename, sep)) != NULL ) {
 			int l;
 
@@ -86,18 +94,21 @@ int main(int argc, char* args[]) {
 			memcpy(from_file, filename, l);
 			from_file[l] = '\0';
 
-			l = strlen(filename) - ((size_t) sep_beg) + strlen(sep);
-			memcpy(from_file, sep_beg, l);
+			l = strlen(filename) - strlen(from_file) - strlen(sep);
+			memcpy(to_file, sep_beg + strlen(sep), l);
 			to_file[l] = '\0';
+
 		} else {
 			printf("Error reading input: %s. Continue next line...\n", filename);
 			continue;
 		}
+
+		printf("Ready to read\n");
 		readField(from_file, psi, GRIDS);
+		printf("Already read\n");
 
 
 		fftwf_execute(p_fwd_psi);
-
 		// ### gaussian curvature ###
 
 		fop.gradx(psi_c, tmp_c);
@@ -119,13 +130,17 @@ int main(int argc, char* args[]) {
 		fftwf_execute(p_bwd_dpsidxdy); fftwf_backward_normalize(dpsidxdy);
 
 
-		for(int i=0; i<GRIDS;++i) { gaus_curv[i] = dpsidx2[i] * dpsidy2[i] - pow(dpsidxdy[i], 2.0f); }
 
+		for(int i=0; i<GRIDS;++i) { gaus_curv[i] = dpsidx2[i] * dpsidy2[i] - pow(dpsidxdy[i], 2.0f); }
 		// ### Source term of lap_prec ### 
 		fftwf_execute(p_fwd_gaus_curv2lap_pres_c);
+
+
+		fop.laplacian(psi_c, tmp_c);
+
 		for(int i=0; i<HALF_GRIDS;++i) {
-			 lap_pres_c[i][0] = rho * ( -f * psi_c[i][0] + 2.0 * lap_pres_c[i][0] );
-			 lap_pres_c[i][1] = rho * ( -f * psi_c[i][1] + 2.0 * lap_pres_c[i][1] );
+			 lap_pres_c[i][0] = rho * ( f * tmp_c[i][0] + 2.0 * lap_pres_c[i][0] );
+			 lap_pres_c[i][1] = rho * ( f * tmp_c[i][1] + 2.0 * lap_pres_c[i][1] );
 		}
 		
 		fop.invertLaplacian(lap_pres_c, tmp_c);

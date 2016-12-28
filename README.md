@@ -15,6 +15,12 @@ This program is to run the 2-dimensional bartropic model with additional output 
 # Dependency
   (1) FFTW3 3.3.4 or above (we use float version -> fftw3f library)
 
+# Initial test
+    make
+    ./setup_env.sh
+    ./example.sh
+
+
 # Build
     make
 
