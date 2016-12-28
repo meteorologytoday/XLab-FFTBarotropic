@@ -13,6 +13,10 @@ EX_LIBS=fftw3f
 IN_LIBS=fieldio
 
 CPP_INC_LIBS=$(foreach lib,$(EX_LIBS),-l$(lib)) $(foreach lib,$(IN_LIBS),-l$(lib))
+LIB_SO=$(foreach lib,$(IN_LIBS),lib$(lib).so)
+
+EXE=main invert_pres
+EXE_OUT=$(foreach exe,$(EXE),$(exe).out)
 
 .DEFAULT_GOAL := all
 
@@ -23,7 +27,7 @@ lib%.so: %.cpp
 	$(CPP) $(CPPFLAGS) -shared -fPIC -o $(LIBPATH)/$@ $<
 
 %.out: %.cpp
-	$(CPP) $(CPPFLAGS) -L$(LIBPATH) -lfieldio -o $(BINPATH)/$@ $<
+	$(CPP) $(CPPFLAGS) -L$(LIBPATH) $(CPP_INC_LIBS) -o $(BINPATH)/$@ $<
 
 main.out: main.cpp
 	$(CPP) $(CPPFLAGS) -L$(LIBPATH) $(CPP_INC_LIBS) -o $(BINPATH)/$@ $<
@@ -40,15 +44,15 @@ clean:
 		rm -rf $$dir; \
 	done
 
-.PHONY: main
-main: main.out
+.PHONY: exe
+exe: $(EXE_OUT)
 
 .PHONY: libs
-libs: libfieldio.so libfftwfop.so
+libs: $(LIB_SO)
 
 .PHONY: makefield
 makefield: makefield.out
 
 
 .PHONY: all
-all: | dirs libs main makefield
+all: | dirs libs exe makefield

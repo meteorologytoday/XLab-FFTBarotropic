@@ -27,4 +27,9 @@ This program is to run the 2-dimensional bartropic model with additional output 
     # Customize input/output folder and initial file name
     ./bin/main.out -imyinput -omyoutput -Imyinitialfile
 
-
+# Environment Variable
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:[path_to_workspace]/lib
+    
+    # or simply
+    cd [path_to_workspace]
+    . setup_env.sh
