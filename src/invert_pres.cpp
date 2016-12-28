@@ -76,7 +76,7 @@ int main(int argc, char* args[]) {
 	p_fwd_gaus_curv2lap_pres_c = fftwf_plan_dft_r2c_2d(XPTS, YPTS, gaus_curv, lap_pres_c, FFTW_ESTIMATE);
 
 	p_bwd_dpsidx2    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, dpsidx2_c, dpsidx2, FFTW_ESTIMATE);
-	p_bwd_dpsidy2    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, dpsidy2_c, dpsidx2, FFTW_ESTIMATE);
+	p_bwd_dpsidy2    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, dpsidy2_c, dpsidy2, FFTW_ESTIMATE);
 	p_bwd_dpsidxdy   = fftwf_plan_dft_c2r_2d(XPTS, YPTS, dpsidxdy_c, dpsidxdy, FFTW_ESTIMATE);
 
 	p_bwd_tmp2pres   = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, pres, FFTW_ESTIMATE);
@@ -109,13 +109,14 @@ int main(int argc, char* args[]) {
 
 
 		fftwf_execute(p_fwd_psi);
+
 		// ### gaussian curvature ###
 
 		fop.gradx(psi_c, tmp_c);
 		fop.gradx(tmp_c, dpsidx2_c);
 
 		fop.grady(psi_c, tmp_c);
-		fop.grady(tmp_c, dpsidx2_c);
+		fop.grady(tmp_c, dpsidy2_c);
 
 		fop.gradx(tmp_c, dpsidxdy_c);
 

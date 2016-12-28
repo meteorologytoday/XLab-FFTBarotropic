@@ -11,7 +11,7 @@
 
 int main() {
 	
-	float centerx = LX / 2.0, centery = LY / 2.0, r_bound = 6000.0, zeta0 = 2e-5;
+	float centerx = LX / 2.0, centery = LY / 2.0, r_bound = 6000.0, zeta0 = 1e-3;
 	float dx = LX / XPTS, dy = LY / YPTS;
 	float r;
 
@@ -28,11 +28,7 @@ int main() {
 			y = j * dy;
 			r = radius(x,y);
 
-			if(r <= r_bound) {
-				vort[IDX(i,j)] = zeta0;
-			} else {
-				vort[IDX(i,j)] = 0;
-			}
+			vort[IDX(i,j)] = zeta0 * exp( - pow(r / 60000.0, 2.0));
 		}
 	}
 
