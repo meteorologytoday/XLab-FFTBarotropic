@@ -190,11 +190,13 @@ int main(int argc, char* args[]) {
 		fftwf_execute(p_bwd_u); fftwf_backward_normalize(u);
 		for(int i=0; i<GRIDS;++i) { u[i] = -u[i]; }
 
+		#ifdef DEBUG
 		if(debug) {
 			sprintf(filename, "%s/u_step_%d.bin", output.c_str(), step);
 			writeField(filename, u, GRIDS);
 			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
+		#endif
 
 		// step 10 get v_c
 		fop.gradx(psi_c, tmp_c);
