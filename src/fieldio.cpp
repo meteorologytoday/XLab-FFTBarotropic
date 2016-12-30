@@ -15,7 +15,7 @@ void writeField(const char * filename, float *data, size_t len) {
 	}
 	fclose(file);
 
-	printf("Output %s\n", filename);
+	fprintf(stderr, "Output %s\n", filename);
 }
 
 void readField(const char * filename, float *data, size_t len) {
@@ -29,7 +29,7 @@ void readField(const char * filename, float *data, size_t len) {
 	}
 	fclose(file);
 
-	printf("%d bytes read: %s\n", flg, filename);
+	fprintf(stderr, "%d bytes read: %s\n", flg, filename);
 }
 
 #endif

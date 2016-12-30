@@ -103,10 +103,7 @@ int main(int argc, char* args[]) {
 			continue;
 		}
 
-		printf("Ready to read\n");
 		readField(from_file, psi, GRIDS);
-		printf("Already read\n");
-
 
 		fftwf_execute(p_fwd_psi);
 
