@@ -15,7 +15,7 @@ IN_LIBS=fieldio
 CPP_INC_LIBS=$(foreach lib,$(EX_LIBS),-l$(lib)) $(foreach lib,$(IN_LIBS),-l$(lib))
 LIB_SO=$(foreach lib,$(IN_LIBS),lib$(lib).so)
 
-EXE=main invert_pres
+EXE=main invert_pres find_min
 EXE_OUT=$(foreach exe,$(EXE),$(exe).out)
 
 MKFIELDS=$(shell find $(SOURCEDIR) -name 'makefield-*.cpp');
@@ -55,7 +55,6 @@ libs: $(LIB_SO)
 
 .PHONY: makefield
 makefield: makefield-elliptic-vortex.out makefield-const-vortex.out makefield-gaussian.out
-
 
 .PHONY: all
 all: | dirs libs exe makefield
