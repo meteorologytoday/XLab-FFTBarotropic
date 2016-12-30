@@ -22,6 +22,7 @@
 #include <fftw3.h>
 #include <errno.h>
 #include <assert.h>
+#include <getopt.h>
 
 #include "configuration.hpp"
 #include "fftwfop.cpp"

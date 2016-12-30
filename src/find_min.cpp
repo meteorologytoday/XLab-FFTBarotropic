@@ -48,9 +48,8 @@ void find_min_n(float * data, size_t data_sz, float * result, size_t * result_po
 		return;
 	}
 
-	memcpy(result, data, result_sz);
-
 	for(size_t i=0; i < result_sz; ++i) {
+		result[i] = data[i];
 		result_pos[i] = i;
 	}
 
