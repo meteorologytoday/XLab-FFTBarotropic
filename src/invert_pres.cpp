@@ -55,6 +55,22 @@ void trim(char * str) {
 
 int main(int argc, char* args[]) {
 
+	size_t ref_x = 0;
+	size_t ref_y = 0;
+
+	char opt;
+	while ((opt = getopt(argc, args, "x:y:")) != EOF) {
+		switch(opt) {
+			case 'x':
+				ref_x = atoi(optarg);
+				break;
+			case 'y':
+				ref_y = atoi(optarg);
+				break;
+		}
+	}
+
+	
 	// initiate variables
 	pres      = (float*) fftwf_malloc(sizeof(float) * GRIDS);
 	psi       = (float*) fftwf_malloc(sizeof(float) * GRIDS);
@@ -142,8 +158,14 @@ int main(int argc, char* args[]) {
 		}
 		
 		fop.invertLaplacian(lap_pres_c, tmp_c);
-
 		fftwf_execute(p_bwd_tmp2pres); fftwf_backward_normalize(pres);
+
+		// reference point
+		float ref_val = pres[ref_x + XPTS * ref_y];
+		for(size_t i=0; i < GRIDS; ++i) {
+			pres[i] -= ref_val;
+		}
+
 		writeField(to_file, pres, GRIDS);
 	}
 
