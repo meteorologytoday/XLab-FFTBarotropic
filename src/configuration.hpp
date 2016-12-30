@@ -24,8 +24,9 @@ const int HALF_GRIDS = XPTS * HALF_YPTS;
 inline int IDX(int i, int j) { return (YPTS*i + j); }
 inline int HIDX(int i, int j) { return (HALF_YPTS*i + j); }
 
-const int total_steps = 10; //100.0 * 60.0 / 3.0;
 const float dt = 3.0f;
+const int total_steps = 15.0 * 60.0 / dt;
+
 
 std::string input = "input";
 std::string output = "output";

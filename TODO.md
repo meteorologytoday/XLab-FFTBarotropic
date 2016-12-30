@@ -1,7 +1,7 @@
 # TODO
 
 
-- BUG: find_min gives wrong location, right data value
+- Write initial field generator in cpp 
 - Add DEBUG macro
 - Add boundary layer feedback mechanism
 - Write a better flowchart
