@@ -150,11 +150,14 @@ int main(int argc, char* args[]) {
 
 		// step 04
 		fftwf_execute(p_bwd_dvortdx); fftwf_backward_normalize(dvortdx);
+
+		#ifdef OUTPUT_GRAD_VORT
 		if(debug) {
 			sprintf(filename, "%s/dvortdx_step_%d.bin", output.c_str(), step);
 			writeField(filename, dvortdx, GRIDS);
 			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
+		#endif
 
 		// step 05 take dvortdy, save as tmp_c
 		fop.grady(vort_c, tmp_c);
@@ -162,27 +165,32 @@ int main(int argc, char* args[]) {
 		// step 06
 		fftwf_execute(p_bwd_dvortdy); fftwf_backward_normalize(dvortdy);
 
+		#ifdef OUTPUT_GRAD_VORT
 		if(debug) {
 			sprintf(filename, "%s/dvortdy_step_%d.bin", output.c_str(), step);
 			writeField(filename, dvortdy, GRIDS);
 			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
+		#endif
 
 		// step 07 get psi_c
 		fop.invertLaplacian(vort_c, psi_c);
 
+		#ifdef OUTPUT_PSI
+
 		if(debug) {
 			 // backup vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(copy_for_c2r, psi_c, sizeof(fftwf_complex) * HALF_GRIDS);
-
 			fftwf_execute(p_bwd_psi); fftwf_backward_normalize(workspace);
 			sprintf(filename, "%s/psi_step_%d.bin", output.c_str(), step);
 			writeField(filename, workspace, GRIDS);
 			fprintf(log_fd, "%s\n", filename);
-
 			 // restore vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(psi_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
 		}
+		
+		#endif
+
 
 		// step 08 get u_c
 		fop.grady(psi_c, tmp_c);
@@ -190,7 +198,7 @@ int main(int argc, char* args[]) {
 		fftwf_execute(p_bwd_u); fftwf_backward_normalize(u);
 		for(int i=0; i<GRIDS;++i) { u[i] = -u[i]; }
 
-		#ifdef DEBUG
+		#ifdef OUTPUT_WIND
 		if(debug) {
 			sprintf(filename, "%s/u_step_%d.bin", output.c_str(), step);
 			writeField(filename, u, GRIDS);
@@ -203,23 +211,26 @@ int main(int argc, char* args[]) {
 		// step 11
 		fftwf_execute(p_bwd_v); fftwf_backward_normalize(v);
 
+		#ifdef OUTPUT_WIND
 		if(debug) {
 			sprintf(filename, "%s/v_step_%d.bin", output.c_str(), step);
 			writeField(filename, v, GRIDS);
 			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
+		#endif
 
 		// step 12 get dvortdt
 		for(int i=0; i<GRIDS;++i) {
 			dvortdt[i] = - u[i] * dvortdx[i] - v[i] * dvortdy[i];
 		}
 
+		#ifdef OUTPUT_DVORTDT
 		if(debug) {
 			sprintf(filename, "%s/dvortdt_step_%d.bin", output.c_str(), step);
 			writeField(filename, dvortdt, GRIDS);
 			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
-
+		#endif
 		// step 13 get dvortdt_c and save in tmp_c
 		fftwf_execute(p_fwd_dvortdt);
 
@@ -243,14 +254,20 @@ int main(int argc, char* args[]) {
 	fftwf_execute(p_fwd_vort);
 
 	// step 02 Everything is ready!!
+	int record_flag = 0;
 	for(int step = 0; step < total_steps; ++step) {
-		printf("# Step %d\n", step+1);
+
+		record_flag = ((step % 100) == 0);
+		printf("# Step %d", step+1);
+		if( (record_flag = ((step % record_step) == 0)) ) { printf(", record now!");}
+		printf("\n");
+
 
 		memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
 
 		for(int k = 0 ; k < 4; ++k) {
 
-			getDvortdt((step % 100 == 0) && k==0, step);
+			getDvortdt(record_flag && (k==0), step);
 
 			// step 14+15 dealiasing dvortdt_c and save to rk?_c)
 			// DEPENDS ON RK?
@@ -280,13 +297,13 @@ int main(int argc, char* args[]) {
 			}
 		}
 
-		if((step+1) % 100 == 0) { // every 5 min
+		if((step+1) % record_step == 0) { // every 5 min
 
 			 // backup vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(copy_for_c2r, vort_c, sizeof(fftwf_complex) * HALF_GRIDS);
 
 			fftwf_execute(p_bwd_vort); fftwf_backward_normalize(vort);
-			sprintf(filename, "%s/vort_%d.bin", output.c_str(), (step+1) / 20);
+			sprintf(filename, "%s/vort_step_%d.bin", output.c_str(), step);
 			writeField(filename, vort, GRIDS);
 			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 
