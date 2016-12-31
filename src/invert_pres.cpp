@@ -39,7 +39,7 @@ fftwf_plan p_fwd_psi,      p_fwd_gaus_curv2lap_pres_c,
 fftwf_operation<XPTS,YPTS> fop(LX, LY);
 
 void fftwf_backward_normalize(float *data) {
-	for(int i=0; i < GRIDS; ++i) {
+	for(size_t i=0; i < GRIDS; ++i) {
 		data[i] /= GRIDS;
 	}
 }
@@ -52,6 +52,14 @@ void trim(char * str) {
 		}
 		--p;
 	}
+}
+
+float sum(float * data) {
+	float sum = 0;
+	for(size_t i=0; i < GRIDS; ++i) {
+		sum += data[i];
+	}
+	return sum;
 }
 
 int main(int argc, char* args[]) {
@@ -102,6 +110,7 @@ int main(int argc, char* args[]) {
 	char filename[1024], from_file[1024], to_file[1024];
 	char * sep_beg;
 	char sep[] = "=>";
+
 	while(fgets(filename, 1024, stdin) != NULL) {
 		trim(filename);	
 		if( (sep_beg  = strstr (filename, sep)) != NULL ) {
@@ -121,6 +130,7 @@ int main(int argc, char* args[]) {
 		}
 
 		readField(from_file, psi, GRIDS);
+
 
 		fftwf_execute(p_fwd_psi);
 
@@ -161,12 +171,19 @@ int main(int argc, char* args[]) {
 		fop.invertLaplacian(lap_pres_c, tmp_c);
 		fftwf_execute(p_bwd_tmp2pres); fftwf_backward_normalize(pres);
 
+		// Calculate the sum of pressure. Assume no source term so that total mass conserves.
+		float adjust = sum(pres) / GRIDS;
+		for(size_t i=0; i < GRIDS; ++i) {
+			pres[i] -= adjust;
+		}
+
+/*
 		// reference point
 		float ref_val = pres[ref_x + XPTS * ref_y];
 		for(size_t i=0; i < GRIDS; ++i) {
 			pres[i] -= ref_val;
 		}
-
+*/
 		writeField(to_file, pres, GRIDS);
 	}
 
