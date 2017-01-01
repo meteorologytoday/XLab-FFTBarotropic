@@ -18,11 +18,15 @@
 #include "fieldio.hpp"
 #include "fftwfop.cpp" // template class must include its implementation
 
+#include "vorticity_source.cpp"
 
 using namespace std;
 
 float dx, dy, Lx, Ly;
-float *vort, *u, *v, *dvortdx, *dvortdy, *dvortdt, *workspace;
+float *vort, *u, *v, *dvortdx, *dvortdy, *dvortdt, *workspace, *vort_src;
+
+float *vort_src;
+
 fftwf_plan p_fwd_vort,    p_bwd_vort,
 		   p_bwd_dvortdx, p_bwd_dvortdy,
 		   p_bwd_u,       p_bwd_v,
@@ -60,6 +64,8 @@ void print_spectrum(fftwf_complex *in) {
 void print_error(char * str) {
 	printf("Error: %s\n", str);
 }
+
+
 
 int main(int argc, char* args[]) {
 
@@ -108,6 +114,7 @@ int main(int argc, char* args[]) {
 	dvortdy   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
 	dvortdt   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
 	workspace = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	vort_src  = (float*) fftwf_malloc(sizeof(float) * GRIDS);
 
 	// complex numbers
 	vort_c0   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
@@ -221,7 +228,7 @@ int main(int argc, char* args[]) {
 
 		// step 12 get dvortdt
 		for(int i=0; i<GRIDS;++i) {
-			dvortdt[i] = - u[i] * dvortdx[i] - v[i] * dvortdy[i];
+			dvortdt[i] = - u[i] * dvortdx[i] - v[i] * dvortdy[i] + vort_src[i];
 		}
 
 		#ifdef OUTPUT_DVORTDT
@@ -262,6 +269,8 @@ int main(int argc, char* args[]) {
 		if( (record_flag = ((step % record_step) == 0)) ) { printf(", record now!");}
 		printf("\n");
 
+		// read source
+		readVortSrc(vort_src, step);
 
 		memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
 
