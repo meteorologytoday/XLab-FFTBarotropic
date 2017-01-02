@@ -35,7 +35,7 @@ int main() {
 	addCakeKuo2004(vort, LX/2.0, LY/2.0, 1.5e-2, 10000.0);
 
 	// vortex 2
-	addCakeKuo2004(vort, LX/2.0 + 50000.0, LY/2.0, 3e-3, 30000.0);
+//	addCakeKuo2004(vort, LX/2.0 + 50000.0, LY/2.0, 3e-3, 30000.0);
 	
 	std::string file = input + "/" + init_file;
 	writeField(file.c_str(), vort, GRIDS);

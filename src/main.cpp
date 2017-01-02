@@ -21,11 +21,14 @@
 #include "vorticity_source.cpp"
 
 using namespace std;
+using namespace VORT_SRC_READER;
 
 float dx, dy, Lx, Ly;
 float *vort, *u, *v, *dvortdx, *dvortdy, *dvortdt, *workspace, *vort_src;
 
-float *vort_src;
+string vort_src_filename = "";
+int has_vort_src = 0;
+enum RECIPE_TYPE recipe_type = EMPTY;
 
 fftwf_plan p_fwd_vort,    p_bwd_vort,
 		   p_bwd_dvortdx, p_bwd_dvortdy,
@@ -66,12 +69,10 @@ void print_error(char * str) {
 }
 
 
-
 int main(int argc, char* args[]) {
-
 	char opt;
 
-	while ((opt = getopt(argc, args, "I:O:i:")) != EOF) {
+	while ((opt = getopt(argc, args, "I:O:i:s:f:")) != EOF) {
 		switch(opt) {
 			case 'I':
 				input = optarg;
@@ -82,9 +83,17 @@ int main(int argc, char* args[]) {
 			case 'i':
 				init_file = optarg;
 				break;
-
+			case 's':
+				vort_src_filename = optarg;
+				recipe_type = SCRIPT;
+				break;
+			case 'f':
+				vort_src_filename = optarg;
+				recipe_type = FIFO;
+				break;
 		}
 	}
+
 
 	printf("##### Model setting #####\n");
 	printf("Initial file          : %s \n", init_file.c_str());
@@ -96,8 +105,9 @@ int main(int argc, char* args[]) {
 	printf("Spatial Resolution dy : %.3f [m]\n", dy);
 	printf("Time Resolution dt    : %.3f [s]\n", dt);
 	printf("#########################\n\n\n");
-
+	
 	printf("Start project.\n");
+
 	
 	// open log
 	FILE *log_fd = fopen("log", "w");
@@ -138,6 +148,10 @@ int main(int argc, char* args[]) {
 	p_bwd_v          = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, v, FFTW_ESTIMATE);
 
 	p_bwd_psi        = fftwf_plan_dft_c2r_2d(XPTS, YPTS, psi_c, workspace, FFTW_ESTIMATE);
+
+	// Vorticity Source Reader initialization
+	VortSrcRecipeReader<GRIDS> vs_reader;
+	vs_reader.init(recipe_type, vort_src_filename, vort_src);
 
 	// read input
 	Lx = LX;
@@ -270,7 +284,7 @@ int main(int argc, char* args[]) {
 		printf("\n");
 
 		// read source
-		readVortSrc(vort_src, step);
+		vs_reader.read(step * dt);
 
 		memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
 
@@ -312,7 +326,7 @@ int main(int argc, char* args[]) {
 			memcpy(copy_for_c2r, vort_c, sizeof(fftwf_complex) * HALF_GRIDS);
 
 			fftwf_execute(p_bwd_vort); fftwf_backward_normalize(vort);
-			sprintf(filename, "%s/vort_step_%d.bin", output.c_str(), step);
+			sprintf(filename, "%s/vort_step_%d.bin", output.c_str(), step+1);
 			writeField(filename, vort, GRIDS);
 			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 
