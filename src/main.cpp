@@ -107,14 +107,12 @@ int main(int argc, char* args[]) {
 	printf("#########################\n\n\n");
 	
 	printf("Start project.\n");
-
 	
 	// open log
 	FILE *log_fd = fopen("log", "w");
 	if(log_fd == NULL) {
 		perror("Open log file");
 	}
-
 
 	// initiate variables
 	vort      = (float*) fftwf_malloc(sizeof(float) * GRIDS);
@@ -278,10 +276,29 @@ int main(int argc, char* args[]) {
 	int record_flag = 0;
 	for(int step = 0; step < total_steps; ++step) {
 
-		record_flag = ((step % 100) == 0);
-		printf("# Step %d", step+1);
+		printf("# Step %d, time = %.2f", step, step * dt);
 		if( (record_flag = ((step % record_step) == 0)) ) { printf(", record now!");}
 		printf("\n");
+
+		if(record_flag) {
+
+			sprintf(filename, "%s/vort_src_input_step_%d.bin", output.c_str(), step);
+			writeField(filename, vort_src, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
+
+			// backup vort_c because c2r must destroy input (NO!!!!!)
+			memcpy(copy_for_c2r, vort_c, sizeof(fftwf_complex) * HALF_GRIDS);
+
+			fftwf_execute(p_bwd_vort); fftwf_backward_normalize(vort);
+			sprintf(filename, "%s/vort_step_%d.bin", output.c_str(), step);
+			writeField(filename, vort, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
+
+			// restore vort_c because c2r must destroy input (NO!!!!!)
+			memcpy(vort_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
+		}
+
+
 
 		// read source
 		vs_reader.read(step * dt);
@@ -320,23 +337,6 @@ int main(int argc, char* args[]) {
 			}
 		}
 
-		if((step+1) % record_step == 0) { // every 5 min
-
-			sprintf(filename, "%s/vort_src_input_step_%d.bin", output.c_str(), step+1);
-			writeField(filename, vort_src, GRIDS);
-			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
-
-			 // backup vort_c because c2r must destroy input (NO!!!!!)
-			memcpy(copy_for_c2r, vort_c, sizeof(fftwf_complex) * HALF_GRIDS);
-
-			fftwf_execute(p_bwd_vort); fftwf_backward_normalize(vort);
-			sprintf(filename, "%s/vort_step_%d.bin", output.c_str(), step+1);
-			writeField(filename, vort, GRIDS);
-			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
-
-			 // restore vort_c because c2r must destroy input (NO!!!!!)
-			memcpy(vort_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
-		}
 
 
 		//fftwf_destroy_plan(p);
