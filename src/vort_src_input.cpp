@@ -30,19 +30,26 @@
 int main() {
 	
 	float * vort = (float *) malloc(GRIDS * sizeof(float));
+	
 
-	// vortex 2
-	addCakeKuo2004(vort, LX/2.0 + 50000.0, LY/2.0, 3e-5, 30000.0);
+	float duration = 3600.0 * 3.0;
+	float beg_time = 3600.0 * 2.0;
+	float end_time = beg_time + duration;
 
-	char flag = (char) 1;
-	fwrite(&flag, sizeof(char), 1, stdout);
-	fwrite(vort, sizeof(float), GRIDS, stdout);
+	size_t beg_step = (size_t) (beg_time / dt);
+	size_t end_step = (size_t) (end_time / dt);
 
+	char flag;
+	for(size_t step = 1 ; step < total_steps; ++step) {
+		if(step == beg_step) {
 
-	float time;
-	for(size_t step = 1 ; step < 100; ++step) {
-		time = dt * step;
-		if(time == 100) {
+			addCakeKuo2004(vort, LX/2.0 + 50000.0, LY/2.0, 3e-3 / duration, 30000.0);
+
+			flag = (char) 1;
+			fwrite(&flag, sizeof(char), 1, stdout);
+			fwrite(vort, sizeof(float), GRIDS, stdout);
+		
+		} else if(step == end_step) {
 			memset(vort, 0, GRIDS * sizeof(float) );
 			flag = (char) 1;
 			fwrite(&flag, sizeof(char), 1, stdout);
@@ -53,7 +60,7 @@ int main() {
 		}
 	}
 	
-	fprintf(stderr, "input program ends\n");
+	fprintf(stderr, "###### input program ends ######\n");
 
 	return 0;
 }

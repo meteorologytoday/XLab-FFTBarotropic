@@ -322,6 +322,10 @@ int main(int argc, char* args[]) {
 
 		if((step+1) % record_step == 0) { // every 5 min
 
+			sprintf(filename, "%s/vort_src_input_step_%d.bin", output.c_str(), step+1);
+			writeField(filename, vort_src, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
+
 			 // backup vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(copy_for_c2r, vort_c, sizeof(fftwf_complex) * HALF_GRIDS);
 

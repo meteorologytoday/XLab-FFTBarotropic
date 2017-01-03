@@ -85,8 +85,6 @@ template<size_t GRIDS> class VortSrcRecipeReader {
 		this->filename = filename;
 		this->vort_src = vort_src;
 
-		printf("INITIALIZATION\n"); fflush(stdout);
-
 		if(recipe_type == SCRIPT) {
 			this->readScript();
 		} else if(recipe_type == FIFO) {
@@ -114,20 +112,23 @@ template<size_t GRIDS> class VortSrcRecipeReader {
 	int readFIFO() {
 		char new_flag;
 		
+
 		if(fread(&new_flag, sizeof(char), 1, fifo) != 1) {
-			fprintf(stderr, "Don't change vorticity source input.\n");
-			return 1; // error while reading new_flag
+			fprintf(stderr, "No flag was detected, assume flag = 0\n"); fflush(stderr);
+			return 1;
 		}
 
 		if(((unsigned int) new_flag) == 1) { // new input
-			fprintf(stderr, "Reading new vorticity source input...");
+
 			if(fread(this->vort_src, sizeof(float), GRIDS, fifo) != GRIDS) {
-				// error while reading vort_src
+				fprintf(stderr, "ERROR: Cannot read vorticity source input.\n"); fflush(stderr);
 				return 2;
 			}
-			fprintf(stderr, " done.\n");
-		}
+			fprintf(stderr, "New vorticity source was given.\n");
+		} else {
 
+			fprintf(stderr, "No new vorticity source input was given.\n"); fflush(stderr);
+		}
 		return 0;
 	}
 

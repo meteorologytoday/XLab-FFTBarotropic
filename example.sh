@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -x
-
 fifo=vort_src_fifo
 #./bin/makefield-elliptic-vortex.out
 #./bin/makefield-const-vortex.out
