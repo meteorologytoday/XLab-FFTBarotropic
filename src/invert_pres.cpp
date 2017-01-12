@@ -172,18 +172,18 @@ int main(int argc, char* args[]) {
 		fftwf_execute(p_bwd_tmp2pres); fftwf_backward_normalize(pres);
 
 		// Calculate the sum of pressure. Assume no source term so that total mass conserves.
-		float adjust = sum(pres) / GRIDS;
+/*		float adjust = sum(pres) / GRIDS;
 		for(size_t i=0; i < GRIDS; ++i) {
 			pres[i] -= adjust;
 		}
+*/
 
-/*
 		// reference point
 		float ref_val = pres[ref_x + XPTS * ref_y];
 		for(size_t i=0; i < GRIDS; ++i) {
 			pres[i] -= ref_val;
 		}
-*/
+
 		writeField(to_file, pres, GRIDS);
 	}
 
