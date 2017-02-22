@@ -1,4 +1,5 @@
 # TODO
+- Develope teaching package
 
 - Add source term of vorticity
   - Use a script to tell which time to employ which source term profile
