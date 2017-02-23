@@ -1,2 +1,2 @@
 #!/bin/bash
-rm -rf {log,input,output}
+rm -rf {log,input,output,img}
