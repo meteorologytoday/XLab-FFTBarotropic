@@ -4,5 +4,5 @@ mkdir input
 mkdir output
 mkdir img
 
-makefield-Kuo2004.out
+makefield-elliptic-vortex.out
 main.out

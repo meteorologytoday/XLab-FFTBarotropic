@@ -9,7 +9,7 @@
 const float rho = 1.0f;
 const float f = 1e-5;
 
-const float L = 200000.0f;
+const float L = 600000.0f;
 
 const float LX = L;
 const float LY = L;

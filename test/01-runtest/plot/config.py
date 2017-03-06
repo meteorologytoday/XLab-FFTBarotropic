@@ -3,8 +3,8 @@ import numpy as np;
 nx = 768
 ny = 768
 
-Lx = 200000.0
-Ly = 200000.0
+Lx = 600000.0
+Ly = 600000.0
 
 x_range = np.array([0.0, Lx])
 y_range = np.array([0.0, Ly])

@@ -28,7 +28,7 @@ int main() {
 		} else {
 			c = (y-centery) / radius(x,y);
 		}
-		return sqrtf((1.0 - pow(epsilon,2)) / (1.0 - pow(epsilon*( sin( asin(c) + 3.1415/4.0 ) ),2)));
+		return sqrtf((1.0 - pow(epsilon,2)) / (1.0 - pow(epsilon*c ,2)));
 	};
 
 	float x, y;
