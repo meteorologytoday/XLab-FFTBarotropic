@@ -42,7 +42,7 @@ except getopt.GetoptError as err:
 in_dir = None
 out_dir = None
 start_step = 0
-
+barb_skip = cf.barb_skip
 for o, a in opts:
 	if o == "--input-dir":
 		in_dir = a
@@ -101,6 +101,8 @@ for step in range(int(start_step / cf.record_step) * cf.record_step, cf.total_st
 	i = int(step / cf.record_step)
 	try:
 		vort = np.fromfile("%s/vort_step_%d.bin" % (in_dir, step), dtype='<f4', count=(cf.nx*cf.ny)).reshape((cf.nx, cf.ny)).transpose()
+		u = np.fromfile("%s/u_step_%d.bin" % (in_dir, step), dtype='<f4', count=(cf.nx*cf.ny)).reshape((cf.nx, cf.ny)).transpose()
+		v = np.fromfile("%s/v_step_%d.bin" % (in_dir, step), dtype='<f4', count=(cf.nx*cf.ny)).reshape((cf.nx, cf.ny)).transpose()
 	
 	except IOError as e:
 		print(e)
@@ -118,14 +120,20 @@ for step in range(int(start_step / cf.record_step) * cf.record_step, cf.total_st
 
 	cax = fig.add_axes([0.85, 0.1, 0.05,0.8])
 
+
+
 	cbar_mappable = ax.contourf(x_vec, y_vec, vort * 1000.0, cb_vec, cmap=cmap_vorticity)#plt.get_cmap("gray_r"))
 	cbar = fig.colorbar(cbar_mappable, cax=cax, orientation='vertical')
+	#strm = ax.streamplot(x_vec, y_vec, u, v, linewidth=2)
+
+	ax.barbs(x_vec[::barb_skip], y_vec[::barb_skip], u[::barb_skip,::barb_skip] * 0.5144, v[::barb_skip,::barb_skip] * 0.5144, length=8)
 	ax.text(1.1, 0.5, r'$\zeta$ [$\times\,10^{-3}\,\mathrm{s}^{-1}$]', rotation=90, horizontalalignment='left', verticalalignment="center", transform=ax.transAxes, fontsize=30)
 	
+
 	ax.text(10, 10, "%02d:%02d:%02d" % (int(t_cnt/3600), int(t_cnt/60) % 60, t_cnt % 60))
 	t_cnt = step * cf.dt
 
-	file_out = "%s/vort_step_%d.png" % (out_dir, step) 
+	file_out = "%s/step_%d.png" % (out_dir, step) 
 	fig.savefig(file_out, dpi=figdpi, format='png')
 	print("Output image: %s" % (file_out,))
 	pplt.close(fig)

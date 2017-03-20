@@ -18,3 +18,5 @@ dt = 3.0
 record_step = 100
 total_steps = int(12 * 60 * 60 / dt)
 avg_n = 30
+
+barb_skip=48

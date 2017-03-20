@@ -2,6 +2,7 @@
 #include <iostream>
 
 #define OUTPUT_PSI
+#define OUTPUT_WIND
 
 #ifndef CONFIGURATION_H
 #define CONFIGURATION_H
