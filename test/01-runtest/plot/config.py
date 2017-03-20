@@ -19,4 +19,5 @@ record_step = 100
 total_steps = int(12 * 60 * 60 / dt)
 avg_n = 30
 
+draw_wind = 'barb'
 barb_skip=48

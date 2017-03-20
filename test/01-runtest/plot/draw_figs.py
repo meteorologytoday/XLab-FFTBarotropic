@@ -124,9 +124,12 @@ for step in range(int(start_step / cf.record_step) * cf.record_step, cf.total_st
 
 	cbar_mappable = ax.contourf(x_vec, y_vec, vort * 1000.0, cb_vec, cmap=cmap_vorticity)#plt.get_cmap("gray_r"))
 	cbar = fig.colorbar(cbar_mappable, cax=cax, orientation='vertical')
-	#strm = ax.streamplot(x_vec, y_vec, u, v, linewidth=2)
 
-	ax.barbs(x_vec[::barb_skip], y_vec[::barb_skip], u[::barb_skip,::barb_skip] * 0.5144, v[::barb_skip,::barb_skip] * 0.5144, length=8)
+	if cf.draw_wind == 'streamline':
+		strm = ax.streamplot(x_vec, y_vec, u, v, linewidth=2)
+	elif cf.draw_wind == 'barb':
+		ax.barbs(x_vec[::barb_skip], y_vec[::barb_skip], u[::barb_skip,::barb_skip] * 0.5144, v[::barb_skip,::barb_skip] * 0.5144, length=8)
+
 	ax.text(1.1, 0.5, r'$\zeta$ [$\times\,10^{-3}\,\mathrm{s}^{-1}$]', rotation=90, horizontalalignment='left', verticalalignment="center", transform=ax.transAxes, fontsize=30)
 	
 
