@@ -83,8 +83,8 @@ int main(int argc, char* args[]) {
 		find_min_n(data, GRIDS, min, pos, min_n);
 
 		for(size_t i = 0; i < min_n; ++i) {
-			ptx = pos[i] % XPTS;
-			pty = (size_t)(pos[i] / XPTS);
+			pty = pos[i] % YPTS;
+			ptx = (size_t)(pos[i] / YPTS);
 			fprintf(stdout, "%zu %zu %.5e\n", ptx, pty, min[i]);
 		}
 

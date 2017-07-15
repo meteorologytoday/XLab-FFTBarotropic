@@ -18,10 +18,17 @@
 #include "fieldio.hpp"
 #include "fftwfop.cpp" // template class must include its implementation
 
+#include "vorticity_source.cpp"
+
 using namespace std;
+using namespace VORT_SRC_READER;
 
 float dx, dy, Lx, Ly;
 float *vort, *u, *v, *dvortdx, *dvortdy, *dvortdt, *workspace, *vort_src;
+
+string vort_src_filename = "";
+int has_vort_src = 0;
+enum RECIPE_TYPE recipe_type = EMPTY;
 
 fftwf_plan p_fwd_vort,    p_bwd_vort,
 		   p_bwd_dvortdx, p_bwd_dvortdy,
@@ -65,7 +72,7 @@ void print_error(char * str) {
 int main(int argc, char* args[]) {
 	char opt;
 
-	while ((opt = getopt(argc, args, "I:O:i:")) != EOF) {
+	while ((opt = getopt(argc, args, "I:O:i:s:f:")) != EOF) {
 		switch(opt) {
 			case 'I':
 				input = optarg;
@@ -75,6 +82,14 @@ int main(int argc, char* args[]) {
 				break;
 			case 'i':
 				init_file = optarg;
+				break;
+			case 's':
+				vort_src_filename = optarg;
+				recipe_type = SCRIPT;
+				break;
+			case 'f':
+				vort_src_filename = optarg;
+				recipe_type = FIFO;
 				break;
 		}
 	}
@@ -131,6 +146,10 @@ int main(int argc, char* args[]) {
 	p_bwd_v          = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, v, FFTW_ESTIMATE);
 
 	p_bwd_psi        = fftwf_plan_dft_c2r_2d(XPTS, YPTS, psi_c, workspace, FFTW_ESTIMATE);
+
+	// Vorticity Source Reader initialization
+	VortSrcRecipeReader<GRIDS> vs_reader;
+	vs_reader.init(recipe_type, vort_src_filename, vort_src);
 
 	// read input
 	Lx = LX;
@@ -280,8 +299,11 @@ int main(int argc, char* args[]) {
 		}
 
 
-		// backup
-		memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS);
+
+		// read source
+		vs_reader.read(step * dt);
+
+		memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
 
 		for(int k = 0 ; k < 4; ++k) {
 
