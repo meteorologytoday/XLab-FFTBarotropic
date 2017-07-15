@@ -28,7 +28,7 @@ fftwf_plan p_fwd_vort,    p_bwd_vort,
 		   p_bwd_u,       p_bwd_v,
 		   p_fwd_dvortdt, p_bwd_psi;
 
-fftwf_complex *vort_c0, *vort_c, *lvort_c, *tmp_c, *psi_c, *rk1_c, *rk2_c, *rk3_c, *copy_for_c2r;
+fftwf_complex *vort_c0, *vort_c, *lvort_c, *dvortdt_c, *tmp_c, *psi_c, *rk1_c, *rk2_c, *rk3_c, *rk4_c, *copy_for_c2r;
 
 fftwf_operation<XPTS,YPTS> fop(LX, LY);
 
@@ -113,16 +113,18 @@ int main(int argc, char* args[]) {
 	vort_c0   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	vort_c    = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	lvort_c   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);  // laplacian vorticity complex
+	dvortdt_c = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	tmp_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	psi_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	rk1_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	rk2_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	rk3_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+	rk4_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 	copy_for_c2r = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 
 	// initializing plan
 	p_fwd_vort       = fftwf_plan_dft_r2c_2d(XPTS, YPTS, vort, vort_c, FFTW_ESTIMATE);
-	p_fwd_dvortdt    = fftwf_plan_dft_r2c_2d(XPTS, YPTS, dvortdt, tmp_c, FFTW_ESTIMATE);
+	p_fwd_dvortdt    = fftwf_plan_dft_r2c_2d(XPTS, YPTS, dvortdt, dvortdt_c, FFTW_ESTIMATE);
 
 	p_bwd_vort       = fftwf_plan_dft_c2r_2d(XPTS, YPTS, vort_c, vort, FFTW_ESTIMATE);
 	p_bwd_dvortdx    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, dvortdx, FFTW_ESTIMATE);
@@ -236,8 +238,8 @@ int main(int argc, char* args[]) {
 
 		// step ?? add laplacian term
 		for(int i=0; i<HALF_GRIDS;++i) {
-			tmp_c[i][0] += lvort_c[i][0] * NU;
-			tmp_c[i][1] += lvort_c[i][1] * NU;
+			dvortdt_c[i][0] += lvort_c[i][0] * NU;
+			dvortdt_c[i][1] += lvort_c[i][1] * NU;
 		}
 	};
 
@@ -291,23 +293,22 @@ int main(int argc, char* args[]) {
 			// DEPENDS ON RK?
 			switch(k) {
 				case 0:
-					fop.dealiase(tmp_c, rk1_c);	evolve(rk1_c, dt / 2.0f);
+					fop.dealiase(dvortdt_c, rk1_c);	evolve(rk1_c, dt / 2.0f);
 					break;
 				case 1:
-					fop.dealiase(tmp_c, rk2_c);	evolve(rk2_c, dt / 2.0f);
+					fop.dealiase(dvortdt_c, rk2_c);	evolve(rk2_c, dt / 2.0f);
 					break;
 				case 2:
-					fop.dealiase(tmp_c, rk3_c);	evolve(rk3_c, dt);
+					fop.dealiase(dvortdt_c, rk3_c);	evolve(rk3_c, dt);
 					break;
 				case 3:
 					// Actually the variable rk4_c is not needed because this is the last call
-					// we can simply replace rk4_c by tmp_c.
-					fop.dealiase(tmp_c, tmp_c);
+					fop.dealiase(dvortdt_c, rk4_c);
 
 					// step 24: get new vort_c
 					for(int i=0; i<HALF_GRIDS; ++i){
-						vort_c[i][0] = vort_c0[i][0] + (rk1_c[i][0] + 2.0f * rk2_c[i][0] + 2.0f * rk3_c[i][0] + tmp_c[i][0]) * dt / 6.0f;
-						vort_c[i][1] = vort_c0[i][1] + (rk1_c[i][1] + 2.0f * rk2_c[i][1] + 2.0f * rk3_c[i][1] + tmp_c[i][1]) * dt / 6.0f;
+						vort_c[i][0] = vort_c0[i][0] + (rk1_c[i][0] + 2.0f * rk2_c[i][0] + 2.0f * rk3_c[i][0] + rk4_c[i][0]) * dt / 6.0f;
+						vort_c[i][1] = vort_c0[i][1] + (rk1_c[i][1] + 2.0f * rk2_c[i][1] + 2.0f * rk3_c[i][1] + rk4_c[i][1]) * dt / 6.0f;
 					}
 
 					break;
