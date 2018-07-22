@@ -43,6 +43,20 @@ void fftwf_backward_normalize(float *data) {
 	}
 }
 
+void vec_mul(float *out, float *in1, float *in2) {
+	for(int i=0; i < GRIDS; ++i) {
+		out[i] = in1[i] * in2[i];
+	}
+}
+
+void vec_add(float *out, float *in1, float *in2) {
+	for(int i=0; i < GRIDS; ++i) {
+		out[i] = in1[i] + in2[i];
+	}
+}
+
+
+
 float sumSqr(fftwf_complex *c) {
 	float strength = 0;
 	for(int i=0; i < HALF_GRIDS;++i){
@@ -199,11 +213,8 @@ int main(int argc, char* args[]) {
 		fftwf_execute(p_bwd_v_divg); fftwf_backward_normalize(v_divg);
 
 		// - add together
-		for(int i=0; i<GRIDS;++i) {
-			u[i] = u_vort[i] + u_divg[i];
-			v[i] = v_vort[i] + v_divg[i];
-		}
-
+		vec_add(u, u_vort, u_divg);
+		vec_add(v, v_vort, v_divg);
 
 		// 3. Calculate nonlinear multiplication in physical space
 
@@ -211,11 +222,30 @@ int main(int argc, char* args[]) {
 		fftwf_execute(p_bwd_vort); fftwf_backward_normalize(vort);
 		fftwf_execute(p_bwd_h   ); fftwf_backward_normalize(h   );
 
-		// - calculate multiplication
+		// - vort to absvort
 		for(int i=0; i<GRIDS;++i) {
-			nlin[i] = 
+			absvort[i] = vort[i] + f
 		}
 
+
+		// - calculate multiplication
+		vec_mul(absvort_u, absvort, u);
+		vec_mul(absvort_v, absvort, v);
+
+		vec_mul(h_u,  h,  u);
+		vec_mul(h_v,  h,  v);
+
+		vec_mul(v2,   v,     v);
+		vec_mul(u2,   u,     u);
+		vec_add( K , u2,    v2);
+		vec_add( K ,  K,  geop);
+		
+		// - forward transformation
+		fftwf_execute(p_fwd_absvort_u);
+		fftwf_execute(p_fwd_absvort_v);
+		fftwf_execute(p_fwd_h_u);
+		fftwf_execute(p_fwd_h_v);
+		fftwf_execute(p_fwd_K);
 	
 		// step 03 take dvortdx, save as tmp_c
 		fop.gradx(vort_c, tmp_c);
