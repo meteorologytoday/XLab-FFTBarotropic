@@ -179,22 +179,44 @@ int main(int argc, char* args[]) {
 		fop.invertLaplacian(vort_c, psi_c);
 		fop.invertLaplacian(divg_c, chi_c);
 		
-		
-		// - calculate u_rot
+		// - rotation flow
+		// -- calculate u_rot
 		fop.grady(psi_c, tmp_c);
-		fftwf_execute(p_bwd_u); fftwf_backward_normalize(u);
-		for(int i=0; i<GRIDS;++i) { u[i] = -u[i]; }
+		fftwf_execute(p_bwd_u_vort); fftwf_backward_normalize(u_vort);
+		for(int i=0; i<GRIDS;++i) { u_vort[i] = -u_vort[i]; }
 
-		// - calculate v_rot
+		// -- calculate v_rot
 		fop.gradx(psi_c, tmp_c);
-		fftwf_execute(p_bwd_v); fftwf_backward_normalize(v);
+		fftwf_execute(p_bwd_v_vort); fftwf_backward_normalize(v_vort);
+
+		// - divergent flow
+		// -- calculate u_div
+		fop.gradx(chi_c, tmp_c);
+		fftwf_execute(p_bwd_u_divg); fftwf_backward_normalize(u_divg);
+
+		// -- calculate v_div
+		fop.grady(chi_c, tmp_c);
+		fftwf_execute(p_bwd_v_divg); fftwf_backward_normalize(v_divg);
+
+		// - add together
+		for(int i=0; i<GRIDS;++i) {
+			u[i] = u_vort[i] + u_divg[i];
+			v[i] = v_vort[i] + v_divg[i];
+		}
 
 
-		// 3. 
-		fftwf_execute(p_bwd_dvortdx); fftwf_backward_normalize(dvortdx);
+		// 3. Calculate nonlinear multiplication in physical space
 
+		// - invert vort, h
+		fftwf_execute(p_bwd_vort); fftwf_backward_normalize(vort);
+		fftwf_execute(p_bwd_h   ); fftwf_backward_normalize(h   );
 
+		// - calculate multiplication
+		for(int i=0; i<GRIDS;++i) {
+			nlin[i] = 
+		}
 
+	
 		// step 03 take dvortdx, save as tmp_c
 		fop.gradx(vort_c, tmp_c);
 
