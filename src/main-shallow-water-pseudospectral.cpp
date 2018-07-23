@@ -282,12 +282,63 @@ int main(int argc, char* args[]) {
 
 	};
 
-	auto evolve = [&](fftwf_complex *target_c, fftwf_complex *rk, float dt) {
-		for(int i=0; i<HALF_GRIDS; ++i){
-			target_c[i][0] += rk[i][0] * dt;
-			target_c[i][1] += rk[i][1] * dt;
+	auto RK4_evolve_single = [&](fftwf_complex * updated, fftw_complex * updated0, fftwf_complex * rk4_term, float coe) {
+		for(int i=0; i<HALF_GRIDS; ++i) {
+			updated[i][0] = updated0[i][0] + rk4_term[k][i][0] * coe;
+			updated[i][1] = updated0[i][1] + rk4_term[k][i][1] * coe;
 		}
+	}
+
+	auto RK4_last_step = [&](fftwf_complex * updated, fftw_complex * updated0, fftwf_complex** rk4_term) {
+		for(int i=0; i<HALF_GRIDS; ++i) {
+			updated[i][0] = updated0[i][0] + (rk4_term[0][i][0] + 2.0f * rk4_term[1][i][0] + 2.0f * rk4_term[2][i][0] + rk4_term[3][i][0]) / 6.0f;
+			updated[i][1] = updated0[i][1] + (rk4_term[0][i][1] + 2.0f * rk4_term[1][i][1] + 2.0f * rk4_term[2][i][1] + rk4_term[3][i][1]) / 6.0f;
+		}
+	}
+
+
+
+	float RK4_step_coe[3] = {0.5f, 0.5f, 1.0f};
+	auto RK4_run = [&]() {
+		memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
+		memcpy(divg_c0, divg_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
+		memcpy(h_c0,       h_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
+
+		for(int k = 0; k < 4 ; ++k) {
+			getDvortdt();
+			vop.mul(rk4_vort_c[k], dvortdt_c, dt) 
+			vop.mul(rk4_divg_c[k], ddivgdt_c, dt) 
+			vop.mul(rk4_h_c[k],    dhdt_c,    dt)
+ 
+			if(k==3) { continue; }
+
+			evolve_single(vort_c, vort_c0, rk4_vort_c[k], RK4_step_coe[k]);
+			evolve_single(divg_c, divg_c0, rk4_divg_c[k], RK4_step_coe[k]);
+			evolve_single(h_c,       h_c0, rk4_h_c[k],    RK4_step_coe[k]);
+		}
+
+		RK4_last_step(vort_c, vort_c0, rk4_vort_c);
+		RK4_last_step(divg_c, divg_c0, rk4_divg_c);
+		RK4_last_step(h_c,       h_c0, rk4_h_c);
+
 	};
+
+	/*
+	auto output_field_from_complex = [&](fftw_complex * data, char * filename) {
+			// backup vort_c because c2r must destroy input (NO!!!!!)
+			memcpy(copy_for_c2r, vort_c, sizeof(fftwf_complex) * HALF_GRIDS);
+
+			fftwf_execute(p_bwd_vort); fftwf_backward_normalize(vort);
+			sprintf(filename, "%s/vort_step_%d.bin", output.c_str(), step);
+			writeField(filename, vort, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
+
+			// restore vort_c because c2r must destroy input (NO!!!!!)
+			memcpy(vort_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
+
+		
+	};
+	*/
 
 	printf("Program initialization complete.\n");
 
@@ -306,10 +357,7 @@ int main(int argc, char* args[]) {
 
 		if(record_flag) {
 
-			sprintf(filename, "%s/vort_src_input_step_%d.bin", output.c_str(), step);
-			writeField(filename, vort_src, GRIDS);
-			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
-
+			// Output vort
 			// backup vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(copy_for_c2r, vort_c, sizeof(fftwf_complex) * HALF_GRIDS);
 
@@ -320,43 +368,36 @@ int main(int argc, char* args[]) {
 
 			// restore vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(vort_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
+
+			
+			// Output divg
+			// backup vort_c because c2r must destroy input (NO!!!!!)
+			memcpy(copy_for_c2r, divg_c, sizeof(fftwf_complex) * HALF_GRIDS);
+
+			fftwf_execute(p_bwd_divg); fftwf_backward_normalize(divg);
+			sprintf(filename, "%s/divg_step_%d.bin", output.c_str(), step);
+			writeField(filename, divg, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
+
+			// restore vort_c because c2r must destroy input (NO!!!!!)
+			memcpy(divg_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
+	
+			// Output h
+			// backup vort_c because c2r must destroy input (NO!!!!!)
+			memcpy(copy_for_c2r, h_c, sizeof(fftwf_complex) * HALF_GRIDS);
+
+			fftwf_execute(p_bwd_h); fftwf_backward_normalize(h);
+			sprintf(filename, "%s/h_step_%d.bin", output.c_str(), step);
+			writeField(filename, h, GRIDS);
+			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
+
+			// restore vort_c because c2r must destroy input (NO!!!!!)
+			memcpy(h_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
+
 		}
 
 
-
-		memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
-		float dt[4] = { dt / 2.0f, dt / 2.0, dt , };
-		for(int k = 0 ; k < 4; ++k) {
-
-			getDvortdt(record_flag && (k==0), step);
-
-			switch(k) {
-				case 0:
-					evolve(rk1_c, dt / 2.0f);
-					break;
-				case 1:
-					evolve(rk2_c, dt / 2.0f);
-					break;
-				case 2:
-					fop.dealiase(tmp_c, rk3_c);	evolve(rk3_c, dt);
-					break;
-				case 3:
-					// Actually the variable rk4_c is not needed because this is the last call
-					// we can simply replace rk4_c by tmp_c.
-					fop.dealiase(tmp_c, tmp_c);
-
-					// step 24: get new vort_c
-					for(int i=0; i<HALF_GRIDS; ++i){
-						vort_c[i][0] = vort_c0[i][0] + (rk1_c[i][0] + 2.0f * rk2_c[i][0] + 2.0f * rk3_c[i][0] + tmp_c[i][0]) * dt / 6.0f;
-						vort_c[i][1] = vort_c0[i][1] + (rk1_c[i][1] + 2.0f * rk2_c[i][1] + 2.0f * rk3_c[i][1] + tmp_c[i][1]) * dt / 6.0f;
-					}
-
-					break;
-
-			}
-		}
-
-
+		RK4_run();
 
 		//fftwf_destroy_plan(p);
 		//fftwf_free(in); fftwf_free(out);
