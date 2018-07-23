@@ -15,6 +15,8 @@
 
 #include "configuration.hpp"
 #include "fieldio.hpp"
+#include "vector_opeartion.hpp"
+
 
 using namespace std;
 using namespace VORT_SRC_READER;
@@ -35,6 +37,8 @@ fftwf_complex *vort_c0, *vort_c, *lvort_c, *tmp_c, *psi_c, *rk1_c, *rk2_c, *rk3_
 
 fftwf_operation<XPTS,YPTS> fop(LX, LY);
 
+VectorOperation<GRIDS> vop;
+
 char filename[256];
 
 void fftwf_backward_normalize(float *data) {
@@ -42,20 +46,6 @@ void fftwf_backward_normalize(float *data) {
 		data[i] /= GRIDS;
 	}
 }
-
-void vec_mul(float *out, float *in1, float *in2) {
-	for(int i=0; i < GRIDS; ++i) {
-		out[i] = in1[i] * in2[i];
-	}
-}
-
-void vec_add(float *out, float *in1, float *in2) {
-	for(int i=0; i < GRIDS; ++i) {
-		out[i] = in1[i] + in2[i];
-	}
-}
-
-
 
 float sumSqr(fftwf_complex *c) {
 	float strength = 0;
@@ -181,13 +171,11 @@ int main(int argc, char* args[]) {
 	readField(filename, vort, GRIDS);
 
 	auto getDvortdt = [&](bool debug, int step){
-
-
 		
 		// 1. Take laplacian (diffusion terms)
-		fop.laplacian(vort_c, lvort_c);
-		fop.laplacian(divg_c, ldivg_c);
-		fop.laplacian(h_c,        h_c);
+		fop.laplacian(vort_c, lvort_c); 
+		fop.laplacian(divg_c, ldivg_c); 
+		fop.laplacian(h_c,       lh_c);
 
 		// 2. Invert divergent and rotational flow
 		fop.invertLaplacian(vort_c, psi_c);
@@ -213,8 +201,8 @@ int main(int argc, char* args[]) {
 		fftwf_execute(p_bwd_v_divg); fftwf_backward_normalize(v_divg);
 
 		// - add together
-		vec_add(u, u_vort, u_divg);
-		vec_add(v, v_vort, v_divg);
+		vop.add(u, u_vort, u_divg);
+		vop.add(v, v_vort, v_divg);
 
 		// 3. Calculate nonlinear multiplication in physical space
 
@@ -223,36 +211,66 @@ int main(int argc, char* args[]) {
 		fftwf_execute(p_bwd_h   ); fftwf_backward_normalize(h   );
 
 		// - vort to absvort
-		for(int i=0; i<GRIDS;++i) {
-			absvort[i] = vort[i] + f
-		}
-
+		vop.add(absvort, vort, bg_vort);
 
 		// - calculate multiplication
-		vec_mul(absvort_u, absvort, u);
-		vec_mul(absvort_v, absvort, v);
+		vop.mul(absvort_u, absvort, u);
+		vop.mul(absvort_v, absvort, v);
 
-		vec_mul(h_u,  h,  u);
-		vec_mul(h_v,  h,  v);
+		vop.mul(h_u,  h,  u);
+		vop.mul(h_v,  h,  v);
 
-		vec_mul(v2,   v,     v);
-		vec_mul(u2,   u,     u);
-		vec_add( K , u2,    v2);
-		vec_add( K ,  K,  geop);
+		vop.mul(v2,   v,     v);
+		vop.mul(u2,   u,     u);
+		vop.add( K , u2,    v2);
+		vop.add( E ,  K,  geop);
 		
 		// - forward transformation
 		fftwf_execute(p_fwd_absvort_u);
 		fftwf_execute(p_fwd_absvort_v);
 		fftwf_execute(p_fwd_h_u);
 		fftwf_execute(p_fwd_h_v);
-		fftwf_execute(p_fwd_K);
-	
-		// step 03 take dvortdx, save as tmp_c
-		fop.gradx(vort_c, tmp_c);
+		fftwf_execute(p_fwd_E);
 
-		// step 04
-		fftwf_execute(p_bwd_dvortdx); fftwf_backward_normalize(dvortdx);
+		// - get spectral derivative
 
+		// -- [vort]
+		vop.set(dvortdt_c, 0f);
+
+		// --- diffusion, Rayleigh friction
+		vop.mul(tmp_c, lvort_c, nu);   vop.isub(dvortdt_c, tmp_c);
+		vop.mul(tmp_c,  vort_c, mu);   vop.iadd(dvortdt_c, tmp_c);
+
+		// --- rest
+		fop.gradx(absvort_u_c, tmp_c); vop.isub(dvortdt_c, tmp_c);
+		fop.grady(absvort_v_c, tmp_c); vop.isub(dvortdt_c, tmp_c);
+
+		// -- [divg]
+		vop.set(ddivgdt_c, 0f);
+
+		// --- diffusion, Rayleigh friction
+		vop.mul(tmp_c, ldivg_c, nu);   vop.isub(ddivgdt_c, tmp_c);
+		vop.mul(tmp_c,  divg_c, mu);   vop.iadd(ddivgdt_c, tmp_c);
+
+		// --- rest
+		fop.gradx(absvort_v_c, tmp_c); vop.iadd(ddivgdt_c, tmp_c);
+		fop.grady(absvort_u_c, tmp_c); vop.isub(ddivgdt_c, tmp_c);
+		fop.laplacian(E_c, tmp_c);     vop.isub(ddivgdt_c, tmp_c);
+
+		// -- [h]
+		vop.set(dhdt_c, 0f);
+
+		// --- Source
+		// vop.isub(dh_c, Q_c);
+
+		// --- diffusion
+		vop.mul(tmp_c, lh_c, nu);   vop.isub(dhdt_c, tmp_c);
+
+		// --- rest
+		fop.gradx(h_u_c, tmp_c);       vop.isub(dhdt_c, tmp_c);
+		fop.grady(h_v_c, tmp_c);       vop.isub(dhdt_c, tmp_c);
+
+		/*
 		#ifdef OUTPUT_GRAD_VORT
 		if(debug) {
 			sprintf(filename, "%s/dvortdx_step_%d.bin", output.c_str(), step);
@@ -260,102 +278,25 @@ int main(int argc, char* args[]) {
 			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 		}
 		#endif
+		*/
 
-		// step 05 take dvortdy, save as tmp_c
-		fop.grady(vort_c, tmp_c);
-
-		// step 06
-		fftwf_execute(p_bwd_dvortdy); fftwf_backward_normalize(dvortdy);
-
-		#ifdef OUTPUT_GRAD_VORT
-		if(debug) {
-			sprintf(filename, "%s/dvortdy_step_%d.bin", output.c_str(), step);
-			writeField(filename, dvortdy, GRIDS);
-			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
-		}
-		#endif
-
-		// step 07 get psi_c
-		fop.invertLaplacian(vort_c, psi_c);
-
-		#ifdef OUTPUT_PSI
-
-		if(debug) {
-			 // backup vort_c because c2r must destroy input (NO!!!!!)
-			memcpy(copy_for_c2r, psi_c, sizeof(fftwf_complex) * HALF_GRIDS);
-			fftwf_execute(p_bwd_psi); fftwf_backward_normalize(workspace);
-			sprintf(filename, "%s/psi_step_%d.bin", output.c_str(), step);
-			writeField(filename, workspace, GRIDS);
-			fprintf(log_fd, "%s\n", filename);
-			 // restore vort_c because c2r must destroy input (NO!!!!!)
-			memcpy(psi_c, copy_for_c2r, sizeof(fftwf_complex) * HALF_GRIDS);
-		}
-		
-		#endif
-
-
-		// step 08 get u_c
-		fop.grady(psi_c, tmp_c);
-		// step 09
-		fftwf_execute(p_bwd_u); fftwf_backward_normalize(u);
-		for(int i=0; i<GRIDS;++i) { u[i] = -u[i]; }
-
-		#ifdef OUTPUT_WIND
-		if(debug) {
-			sprintf(filename, "%s/u_step_%d.bin", output.c_str(), step);
-			writeField(filename, u, GRIDS);
-			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
-		}
-		#endif
-
-		// step 10 get v_c
-		fop.gradx(psi_c, tmp_c);
-		// step 11
-		fftwf_execute(p_bwd_v); fftwf_backward_normalize(v);
-
-		#ifdef OUTPUT_WIND
-		if(debug) {
-			sprintf(filename, "%s/v_step_%d.bin", output.c_str(), step);
-			writeField(filename, v, GRIDS);
-			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
-		}
-		#endif
-
-		// step 12 get dvortdt
-		for(int i=0; i<GRIDS;++i) {
-			dvortdt[i] = - u[i] * dvortdx[i] - v[i] * dvortdy[i] + vort_src[i];
-		}
-
-		#ifdef OUTPUT_DVORTDT
-		if(debug) {
-			sprintf(filename, "%s/dvortdt_step_%d.bin", output.c_str(), step);
-			writeField(filename, dvortdt, GRIDS);
-			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
-		}
-		#endif
-		// step 13 get dvortdt_c and save in tmp_c
-		fftwf_execute(p_fwd_dvortdt);
-
-		// step ?? add laplacian term
-		for(int i=0; i<HALF_GRIDS;++i) {
-			tmp_c[i][0] += lvort_c[i][0] * NU;
-			tmp_c[i][1] += lvort_c[i][1] * NU;
-		}
 	};
 
-	auto evolve = [&](fftwf_complex *rk, float dt) {
+	auto evolve = [&](fftwf_complex *target_c, fftwf_complex *rk, float dt) {
 		for(int i=0; i<HALF_GRIDS; ++i){
-			vort_c[i][0] = vort_c0[i][0] + rk[i][0] * dt;
-			vort_c[i][1] = vort_c0[i][1] + rk[i][1] * dt;
+			target_c[i][0] += rk[i][0] * dt;
+			target_c[i][1] += rk[i][1] * dt;
 		}
 	};
 
-	printf("Initialization complete.\n");
+	printf("Program initialization complete.\n");
 
-	// step 01
+	// Preparation: 
 	fftwf_execute(p_fwd_vort);
+	fftwf_execute(p_fwd_divg);
+	fftwf_execute(p_fwd_h);
+	fftwf_execute(p_fwd_Q);
 
-	// step 02 Everything is ready!!
 	int record_flag = 0;
 	for(int step = 0; step < total_steps; ++step) {
 
@@ -383,23 +324,18 @@ int main(int argc, char* args[]) {
 
 
 
-		// read source
-		vs_reader.read(step * dt);
-
 		memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
-
+		float dt[4] = { dt / 2.0f, dt / 2.0, dt , };
 		for(int k = 0 ; k < 4; ++k) {
 
 			getDvortdt(record_flag && (k==0), step);
 
-			// step 14+15 dealiasing dvortdt_c and save to rk?_c)
-			// DEPENDS ON RK?
 			switch(k) {
 				case 0:
-					fop.dealiase(tmp_c, rk1_c);	evolve(rk1_c, dt / 2.0f);
+					evolve(rk1_c, dt / 2.0f);
 					break;
 				case 1:
-					fop.dealiase(tmp_c, rk2_c);	evolve(rk2_c, dt / 2.0f);
+					evolve(rk2_c, dt / 2.0f);
 					break;
 				case 2:
 					fop.dealiase(tmp_c, rk3_c);	evolve(rk3_c, dt);
