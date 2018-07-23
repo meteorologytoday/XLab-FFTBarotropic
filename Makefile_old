@@ -31,7 +31,7 @@ lib%.so: %.cpp
 %.out: %.cpp
 	$(CPP) $(CPPFLAGS) $< -L$(LIBPATH) $(CPP_INC_LIBS) -o $(BINPATH)/$@
 
-main.out: main-shallow-water-pseudospectral.cpp
+main.out: main.cpp
 	$(CPP) $(CPPFLAGS) $< -L$(LIBPATH) $(CPP_INC_LIBS) -o $(BINPATH)/$@
 
 $(BUILD_DIRS):
