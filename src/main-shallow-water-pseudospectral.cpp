@@ -52,6 +52,22 @@ void print_error(char * str) {
 	printf("Error: %s\n", str);
 }
 
+float * malloc_field_re() {
+	return (float*) fftwf_malloc(sizeof(float) * GRIDS);
+}
+
+
+fftwf_complex * malloc_field_im() {
+    return (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+}
+
+fftwf_plan crt_fwd_plan(float * re, fftwf_complex * im) {
+    return fftwf_plan_dft_r2c_2d(XPTS, YPTS, re, im, FFTW_ESTIMATE);
+}
+
+fftwf_plan crt_bwd_plan(float * re, fftwf_complex * im) {
+    return fftwf_plan_dft_c2r_2d(XPTS, YPTS, im, re, FFTW_ESTIMATE);
+}
 
 int main(int argc, char* args[]) {
 
@@ -75,62 +91,115 @@ int main(int argc, char* args[]) {
 	}
 
 	// initiate variables
-	
-	vort       = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	divg       = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	h          = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	bg_vort    = (float*) fftwf_malloc(sizeof(float) * GRIDS);
 
-	u_vort     = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	v_vort     = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	Q          = malloc_field_re();
+	vort       = malloc_field_re();
+	divg       = malloc_field_re();
+	geop       = malloc_field_re();
+	bg_vort    = malloc_field_re();
 
-	u_divg    = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	v_divg    = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	
-	u         = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	v         = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+	u         = malloc_field_re();
+	u2        = malloc_field_re();
+	u_divg    = malloc_field_re();
+	u_vort    = malloc_field_re();
 
-
-	// initializing plan
-	p_fwd_vort       = fftwf_plan_dft_r2c_2d(XPTS, YPTS, vort, vort_c, FFTW_ESTIMATE);
-	p_fwd_dvortdt    = fftwf_plan_dft_r2c_2d(XPTS, YPTS, dvortdt, tmp_c, FFTW_ESTIMATE);
-
-	p_bwd_vort       = fftwf_plan_dft_c2r_2d(XPTS, YPTS, vort_c, vort, FFTW_ESTIMATE);
-	p_bwd_dvortdx    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, dvortdx, FFTW_ESTIMATE);
-	p_bwd_dvortdy    = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, dvortdy, FFTW_ESTIMATE);
-	p_bwd_u          = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, u, FFTW_ESTIMATE);
-	p_bwd_v          = fftwf_plan_dft_c2r_2d(XPTS, YPTS, tmp_c, v, FFTW_ESTIMATE);
-
-	p_bwd_psi        = fftwf_plan_dft_c2r_2d(XPTS, YPTS, psi_c, workspace, FFTW_ESTIMATE);
+    v         = malloc_field_re();
+    v2        = malloc_field_re();
+    v_divg    = malloc_field_re();
+    v_vort    = malloc_field_re();
 
 
-	dvortdx   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	dvortdy   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	dvortdt   = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	workspace = (float*) fftwf_malloc(sizeof(float) * GRIDS);
-	vort_src  = (float*) fftwf_malloc(sizeof(float) * GRIDS);
+    K         = malloc_field_re();
+    E         = malloc_field_re();
 
-	// complex numbers
-	vort_c0   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	divg_c0   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	geop_c0      = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+    absvort   = malloc_field_re();
+    absvort_u = malloc_field_re();
+    absvort_v = malloc_field_re();
+    
+    geop_u    = malloc_field_re();
+    geop_v    = malloc_field_re();
+    
+    dvortdx   = malloc_field_re();
+    dvortdy   = malloc_field_re();
+    
+    dvortdt   = malloc_field_re();
+    ddivgdt   = malloc_field_re();
+    dgeopdt   = malloc_field_re();
+    
+    workspace = malloc_field_re();
 
-	vort_c    = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	divg_c    = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	geop_c       = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
 
-	lvort_c   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);  // laplacian vorticity complex
-	ldivg_c   = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);  // laplacian vorticity complex
-	lgeop_c      = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);  // laplacian vorticity complex
+    // complex numbers
+    
+    vort_c0 = malloc_field_im();
+    vort_c  = malloc_field_im(); 
+    lvort_c = malloc_field_im();
 
-	tmp_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	psi_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	rk1_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	rk2_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	rk3_c     = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
-	copy_for_c2r = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * HALF_GRIDS);
+    divg_c0 = malloc_field_im();
+    divg_c  = malloc_field_im(); 
+    ldivg_c = malloc_field_im();
 
-	// read input
+    geop_c0 = malloc_field_im();
+    geop_c  = malloc_field_im(); 
+    lgeop_c = malloc_field_im();
+    
+    absvort_u_c  = malloc_field_im();
+    absvort_v_c  = malloc_field_im();
+    geop_u_c     = malloc_field_im();
+    geop_v_c     = malloc_field_im();
+    E_c          = malloc_field_im();
+    chi_c        = malloc_field_im();
+    psi_c        = malloc_field_im();
+    tmp_c        = malloc_field_im();
+    copy_for_c2r = malloc_field_im();
+
+    dvortdt_c    = malloc_field_im();
+    ddivgdt_c    = malloc_field_im();
+    dgeopdt_c    = malloc_field_im();
+    
+    for(int k=0; k < 4; ++k) {
+        rk4_vort_c[k] = malloc_field_im();
+        rk4_divg_c[k] = malloc_field_im();
+        rk4_geop_c[k] = malloc_field_im();
+    }
+
+    // plans
+    p_fwd_vort       = crt_fwd_plan(Q,       Q_c);
+    
+    p_fwd_vort       = crt_fwd_plan(vort, vort_c);
+    p_bwd_vort       = crt_bwd_plan(vort, vort_c);
+
+    p_fwd_divg       = crt_fwd_plan(divg, divg_c);
+    p_bwd_divg       = crt_bwd_plan(divg, divg_c);
+
+    p_fwd_geop       = crt_fwd_plan(geop, geop_c);
+    p_bwd_geop       = crt_bwd_plan(geop, geop_c);
+
+    p_bwd_dvortdx    = crt_bwd_plan(dvortdx, tmp_c);
+    p_bwd_dvortdy    = crt_bwd_plan(dvortdy, tmp_c);
+    
+    p_bwd_u          = crt_bwd_plan(u     , tmp_c);
+    p_bwd_u_vort     = crt_bwd_plan(u_vort, tmp_c);
+    p_bwd_u_divg     = crt_bwd_plan(u_divg, tmp_c);
+
+    p_bwd_v          = crt_bwd_plan(v     , tmp_c);
+    p_bwd_v_vort     = crt_bwd_plan(v_vort, tmp_c);
+    p_bwd_v_divg     = crt_bwd_plan(v_divg, tmp_c);
+
+
+    p_fwd_dvortdt    = crt_fwd_plan(dvortdt, dvortdt_c);
+    p_fwd_ddivgdt    = crt_fwd_plan(ddivgdt, ddivgdt_c);
+    p_fwd_dgeopdt    = crt_fwd_plan(dgeopdt, dgeopdt_c);
+    
+    p_fwd_absvort_u  = crt_fwd_plan(absvort_u, absvort_u_c);
+    p_fwd_absvort_v  = crt_fwd_plan(absvort_v, absvort_v_c);
+
+    p_fwd_geop_u     = crt_fwd_plan(geop_u, geop_u_c);
+    p_fwd_geop_v     = crt_fwd_plan(geop_v, geop_v_c);
+
+    p_fwd_E          = crt_fwd_plan(E, E_c);
+
+		// read input
 	Lx = LX;
 	Ly = LY;
 	dx = Lx / XPTS;
@@ -251,14 +320,15 @@ int main(int argc, char* args[]) {
 
 	};
 
-	auto RK4_evolve_single = [&](fftwf_complex * updated, fftw_complex * updated0, fftwf_complex * rk4_term, float coe) {
+
+	auto RK4_evolve_single = [&](fftwf_complex * updated, fftwf_complex * updated0, fftwf_complex * rk4_term, float coe) {
 		for(int i=0; i<HALF_GRIDS; ++i) {
 			updated[i][0] = updated0[i][0] + rk4_term[i][0] * coe;
 			updated[i][1] = updated0[i][1] + rk4_term[i][1] * coe;
 		}
 	};
 
-	auto RK4_last_step = [&](fftwf_complex * updated, fftw_complex * updated0, fftwf_complex** rk4_term) {
+	auto RK4_last_step = [&](fftwf_complex * updated, fftwf_complex * updated0, fftwf_complex** rk4_term) {
 		for(int i=0; i<HALF_GRIDS; ++i) {
 			updated[i][0] = updated0[i][0] + (rk4_term[0][i][0] + 2.0f * rk4_term[1][i][0] + 2.0f * rk4_term[2][i][0] + rk4_term[3][i][0]) / 6.0f;
 			updated[i][1] = updated0[i][1] + (rk4_term[0][i][1] + 2.0f * rk4_term[1][i][1] + 2.0f * rk4_term[2][i][1] + rk4_term[3][i][1]) / 6.0f;
@@ -268,6 +338,7 @@ int main(int argc, char* args[]) {
 
 
 	float RK4_step_coe[3] = {0.5f, 0.5f, 1.0f};
+
 	auto RK4_run = [&]() {
 		memcpy(vort_c0, vort_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
 		memcpy(divg_c0, divg_c, sizeof(fftwf_complex) * HALF_GRIDS); // backup
@@ -275,20 +346,20 @@ int main(int argc, char* args[]) {
 
 		for(int k = 0; k < 4 ; ++k) {
 			getDvortdt();
-			vop.mul(rk4_vort_c[k], dvortdt_c, dt) 
-			vop.mul(rk4_divg_c[k], ddivgdt_c, dt) 
-			vop.mul(rk4_geop_c[k],    dhdt_c,    dt)
+			vop.mul(rk4_vort_c[k], dvortdt_c, dt); 
+			vop.mul(rk4_divg_c[k], ddivgdt_c, dt) ;
+			vop.mul(rk4_geop_c[k], dgeopdt_c, dt);
  
 			if(k==3) { continue; }
 
-			evolve_single(vort_c, vort_c0, rk4_vort_c[k], RK4_step_coe[k]);
-			evolve_single(divg_c, divg_c0, rk4_divg_c[k], RK4_step_coe[k]);
-			evolve_single(geop_c,       geop_c0, rk4_geop_c[k],    RK4_step_coe[k]);
+			RK4_evolve_single(vort_c, vort_c0, rk4_vort_c[k], RK4_step_coe[k]);
+			RK4_evolve_single(divg_c, divg_c0, rk4_divg_c[k], RK4_step_coe[k]);
+			RK4_evolve_single(geop_c, geop_c0, rk4_geop_c[k], RK4_step_coe[k]);
 		}
 
 		RK4_last_step(vort_c, vort_c0, rk4_vort_c);
 		RK4_last_step(divg_c, divg_c0, rk4_divg_c);
-		RK4_last_step(geop_c,       geop_c0, rk4_geop_c);
+		RK4_last_step(geop_c, geop_c0, rk4_geop_c);
 
 	};
 
@@ -314,7 +385,7 @@ int main(int argc, char* args[]) {
 	// Preparation: 
 	fftwf_execute(p_fwd_vort);
 	fftwf_execute(p_fwd_divg);
-	fftwf_execute(p_fwd_h);
+	fftwf_execute(p_fwd_geop);
 	fftwf_execute(p_fwd_Q);
 
 	int record_flag = 0;
@@ -355,9 +426,9 @@ int main(int argc, char* args[]) {
 			// backup vort_c because c2r must destroy input (NO!!!!!)
 			memcpy(copy_for_c2r, geop_c, sizeof(fftwf_complex) * HALF_GRIDS);
 
-			fftwf_execute(p_bwd_h); fftwf_backward_normalize(h);
+			fftwf_execute(p_bwd_geop); fftwf_backward_normalize(geop);
 			sprintf(filename, "%s/geop_step_%d.bin", output.c_str(), step);
-			writeField(filename, h, GRIDS);
+			writeField(filename, geop, GRIDS);
 			fprintf(log_fd, "%s\n", filename); fflush(log_fd);
 
 			// restore vort_c because c2r must destroy input (NO!!!!!)
